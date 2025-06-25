@@ -5,9 +5,9 @@ from interfaces.msg._tag_pose_stamped import TagPoseStamped
 import rclpy
 from rclpy.node import Node
 
+from tf2_ros import TransformException
 from tf2_ros.transform_listener import TransformListener
-from tf2_ros .buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
+from tf2_ros.buffer import Buffer
 
 from std_msgs.msg import Header
 from geometry_msgs.msg import TransformStamped, PoseStamped, Pose, Quaternion, Point, Transform
@@ -35,7 +35,7 @@ class Map_Generator_Node(Node):
         self.origin.orientation.x = 0.0
         self.origin.orientation.y = 0.0
         self.origin.orientation.z = 0.0
-        self.origin.orientation.w = 0.0
+        self.origin.orientation.w = 1.0
 
         box_width = 0.155
         box_height = 0.23
@@ -46,7 +46,6 @@ class Map_Generator_Node(Node):
         self.marker_size = 0.096
         self.transform = Transform()
 
-        # self.grid = self.init_grid(self.norm_height, self.norm_width, self.resolution, origin)
         self.grid = np.zeros((self.norm_height, self.norm_width), dtype=np.int8)      
 
         #Subscribers
@@ -60,32 +59,38 @@ class Map_Generator_Node(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # self.tf_timer = self.create_timer(0.5, self.tf_cb)
-
     
     def tf_cb(self, id):
-        self.transform = self.tf_buffer.lookup_transform(
-            'ceil_camera',
-            f'tag_{id}',
-            rclpy.time.Time()).transform
-        print(self.transform)
-
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                'ceil_camera',
+                f'tag_{id}',
+                rclpy.time.Time()).transform
+            # print(self.transform)
+            return transform
+        except TransformException as ex:
+                self.get_logger().info(
+                    f'Could not transform tag_{id} to ceil_camera: {ex}')
 
     def gen_map(self, msg):
         tag_position = msg.pose.position
 
+
         print(f'frame:: {msg.tag_id}')
         transform = self.tf_cb(msg.tag_id)
 
+        # x = int(tag_position.x)
+        # y = int(tag_position.y)
+        
         x = normalize(tag_position.x, self.resolution)
         y = normalize(tag_position.y, self.resolution)
         
         print(f"tag_x:: {x}, tag_y:: {y}")
-        print(f"x_bound:: {x+self.norm_box_height}, tag_y:: {y+self.norm_box_width}")
+        print(f"x_bound:: {x+self.norm_box_height}, tag_y:: {y-self.norm_box_width}")
 
 
         for i in range(x, x + self.norm_box_height):
-            for j in range(y, y + self.norm_box_width):
+            for j in range(y, y - self.norm_box_width):
                 if 0 <= i < self.norm_height and 0 <= j < self.norm_width:
                     # print("test")
                     self.grid[i][j] = 1
@@ -105,17 +110,6 @@ class Map_Generator_Node(Node):
         msg.info.origin = self.origin
 
         self.map_pub.publish(msg)
-
-    # def init_grid(self, height, width, resolution, origin):
-    #     grid = OccupancyGrid()
-    #     grid.info.height = height
-    #     grid.info.width = width
-    #     grid.info.resolution = resolution
-    #     grid.info.origin = origin
-    #     grid.data = np.zeros((height, width), dtype=np.uint8)
-
-    #     return grid
-    
 
 def main():
     rclpy.init()
