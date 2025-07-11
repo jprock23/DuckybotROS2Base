@@ -69,8 +69,8 @@ def generate_launch_description() -> LaunchDescription:
             executable="camera_node",
             parameters=[{
                 "camera": camera_param,
-                "width": 2592,
-                "height": 1944,
+                "width": 640,
+                "height": 480,
                 "format": format_param,
                 "camera_info_url": calibration_param,
                 "frame_id": frame_id_param

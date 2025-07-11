@@ -34,7 +34,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Encoder.msg"
   "srv/GetImage.srv"
   "msg/TagPoseStamped.msg"
-  DEPENDENCIES std_msgs sensor_msgs
+  "msg/TagPoseArray.msg"
+  DEPENDENCIES std_msgs sensor_msgs geometry_msgs
 )
 
 ament_package()

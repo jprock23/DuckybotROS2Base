@@ -12,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'include'), glob('include/*.py')),
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.dae')),
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*')),
@@ -28,7 +29,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'tag_detector=camera.tag_detector_node:main',
+            'tag_detector=camera.tag_detector_node_2:main',
             'static_broadcaster=camera.static_camera_to_map_broadcaster:main'
         ],
     },

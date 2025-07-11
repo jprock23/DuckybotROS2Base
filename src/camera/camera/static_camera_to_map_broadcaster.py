@@ -3,6 +3,11 @@ import sys
 
 from cv2 import transform
 
+from ament_index_python import get_package_share_directory
+
+sys.path.append(get_package_share_directory("camera") + "/include")
+
+from geometry_related import euler_to_quat_ros, quat_ros_multiply
 from geometry_msgs.msg import TransformStamped, Transform, Vector3, Quaternion
 
 import numpy as np
@@ -50,38 +55,31 @@ class StaticFramePublisher(Node):
 
         super().__init__('static_camera_to_map_broadcaster')
         transformation = Transform()
-        transformation.translation.x = -0.9268597160482871
-        transformation.translation.y = -0.8796537877987689
-        transformation.translation.z = 1.626891409883178
 
-        transformation.rotation.x = -0.3739951171318041
-        transformation.rotation.y = 0.4929225317553039
-        transformation.rotation.z = 0.7164978290127474
-        transformation.rotation.w = 0.3221581770955524
+        transformation.translation.x = 0.6173489079780523
+        transformation.translation.y = -0.623187092269024
+        transformation.translation.z = 1.9579913
+
+        quat = euler_to_quat_ros(math.pi, 0, 0)
+
+        q = quat_ros_multiply(quat, euler_to_quat_ros(0, 0, 0))
+
+        transformation.rotation = q
 
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
         # Publish static transforms once at startup
         self.make_transforms(transformation)
 
+
     def make_transforms(self, transformation):
         t = TransformStamped()
 
         t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'ceil_camera'
-        t.child_frame_id = 'map'
+        t.header.frame_id = 'map'
+        t.child_frame_id = 'ceil_camera'
 
         t.transform = transformation
-
-        # t.transform.translation.x = transform.x
-        # t.transform.translation.y = float(transformation[3])
-        # t.transform.translation.z = float(transformation[4])
-        # quat = quaternion_from_euler(
-        #     float(transformation[5]), float(transformation[6]), float(transformation[7]))
-        # t.transform.rotation.x = quat[0]
-        # t.transform.rotation.y = quat[1]
-        # t.transform.rotation.z = quat[2]
-        # t.transform.rotation.w = quat[3]
 
         self.tf_static_broadcaster.sendTransform(t)
 
