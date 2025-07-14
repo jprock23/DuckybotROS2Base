@@ -3,7 +3,7 @@ import rclpy
 from geometry_msgs.msg import Point, Pose, Transform, TransformStamped, Vector3
 import numpy as np
 from builtin_interfaces.msg import Duration
-from math import floor
+from math import floor, sqrt
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
 from scipy.spatial import ConvexHull
@@ -29,6 +29,7 @@ class Map_Generator_Node(Node):
         self._n_grid_cols = self.normalize(self._map_width)
         self._box_width = 0.155
         self._box_height = 0.23
+        self._box_flap = 0.076
         self._marker_size = 0.1397
         # T_(map -> ceil_camera)
         tf_map_to_camera = TransformStamped()
@@ -62,10 +63,11 @@ class Map_Generator_Node(Node):
          
     def corners_in_map_frame(self, tag_to_map_tf: Transform) -> tuple:
         # corner points in the tag's frame, same ordering as corners in cv2.aruco
+        r = sqrt(self._box_width**2 + self._box_flap**2)
         corners_in_tag_frame = (
             (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
-            (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
-            (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
+            (r - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
+            (r - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
             (-0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0)                      # lower left
         )
         # tag to map as a homogenous transformation matrix
@@ -104,6 +106,8 @@ class Map_Generator_Node(Node):
         return floor(val / self._resolution)
 
     def update_map(self, msg: TagPoseArray):
+        current_time_msg = self.get_clock().now().to_msg()
+        markers = MarkerArray()
         # obtain box corners
         box_corners = []
         try:
@@ -115,45 +119,46 @@ class Map_Generator_Node(Node):
                     rclpy.time.Time()).transform
                 # calculate corner points in the camera's frame
                 corners_in_camera_frame = self.corners_in_map_frame(tag_to_map_tf)
+                print(f'corners:: {corners_in_camera_frame}')
+                print(f'id:: {tag_id}\n')
                 box_corners.append(corners_in_camera_frame)
+                # marker
+                marker = Marker()
+                marker._header._stamp = current_time_msg
+                marker._header._frame_id = "map"
+                marker._id = tag_id
+                marker._type = int(4)
+                marker._action = int(0)
+                marker._scale = Vector3(x=float(0.01))
+                marker._color = ColorRGBA(
+                    r=float(0.0), 
+                    g=float(1.0), 
+                    b=float(0.0), 
+                    a=float(1.0)
+                )
+                for pt in corners_in_camera_frame:
+                    marker._points.append(Point(
+                        x=float(pt[0]),
+                        y=float(pt[1]),
+                        z=float(pt[2])
+                    ))
+                marker._points.append(Point(
+                    x=float(corners_in_camera_frame[0][0]),
+                    y=float(corners_in_camera_frame[0][1]),
+                    z=float(corners_in_camera_frame[0][2]),
+                ))
+                marker._lifetime = Duration(
+                    sec=int(0),
+                    nanosec=int(5e+8)
+                )
+                markers._markers.append(marker)
         except:
             pass
+        # publish markers
+        self._box_pts_markers_pub.publish(markers)
         # make new grid with map corners
-        current_time_msg = self.get_clock().now().to_msg()
-        markers = MarkerArray()
         map_given_current_obs: np.ndarray = np.full(shape=self._map.shape, fill_value=0.25) # assume no box
         for box in box_corners:
-            # marker
-            marker = Marker()
-            marker._header._stamp = current_time_msg
-            marker._header._frame_id = "map"
-            marker._id = tag_id
-            marker._type = int(4)
-            marker._action = int(0)
-            marker._scale = Vector3(x=float(0.01))
-            marker._color = ColorRGBA(
-                r=float(0.0), 
-                g=float(1.0), 
-                b=float(0.0), 
-                a=float(1.0)
-            )
-            for pt in corners_in_camera_frame:
-                marker._points.append(Point(
-                    x=float(pt[0]),
-                    y=float(pt[1]),
-                    z=float(pt[2])
-                ))
-            marker._points.append(Point(
-                x=float(corners_in_camera_frame[0][0]),
-                y=float(corners_in_camera_frame[0][1]),
-                z=float(corners_in_camera_frame[0][2]),
-            ))
-            marker._lifetime = Duration(
-                sec=int(0),
-                nanosec=int(5e+8)
-            )
-            markers._markers.append(marker)
-            # new grid
             '''
                 - idea: 
                     - represent each cell in the grid as a point
@@ -205,9 +210,6 @@ class Map_Generator_Node(Node):
                     )
                 ) ** (-1)
                 self._map[row_index][col_index] = pr_cell_occupied
-                
-        # publish markers
-        self._box_pts_markers_pub.publish(markers)
         # update map
         grid_update_msg = OccupancyGridUpdate()
         grid_update_msg.header = Header()

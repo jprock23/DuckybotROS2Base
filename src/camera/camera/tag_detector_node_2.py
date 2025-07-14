@@ -65,7 +65,7 @@ class TagDetectorNode(Node):
         # broadcaster
         self._camera_to_tag_tf_broadcaster = TransformBroadcaster(self)
         # routine
-        self._timer_period = float(5)
+        self._timer_period = float(0.25)
         self._timer = self.create_timer(self._timer_period, self.calc_tag_pose)
 
     def img_processing(self, msg: CompressedImage):
