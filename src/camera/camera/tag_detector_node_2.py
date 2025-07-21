@@ -160,13 +160,13 @@ class TagDetectorNode(Node):
                         ((Rotation.from_quat([0.0, 0.0, 0.0, 1.0])).inv()).as_quat()
                     )
 
-                    camera_to_tag_euler = Rotation.from_quat(camera_to_tag_quat).as_euler("xyz")
-                    print("old", int(markedID[0]), camera_to_tag_euler)
-                    camera_to_tag_euler[0] = 0.0
-                    camera_to_tag_euler[1] = -0.4559 + pi
-                    camera_to_tag_euler[2] += pi
-                    print("new", int(markedID[0]), camera_to_tag_euler)
-                    camera_to_tag_quat = Rotation.from_euler("xyz", camera_to_tag_euler, degrees=False).as_quat()
+                    # camera_to_tag_euler = Rotation.from_quat(camera_to_tag_quat).as_euler("xyz")
+                    # print("old", int(markedID[0]), camera_to_tag_euler)
+                    # camera_to_tag_euler[0] = 0.0
+                    # camera_to_tag_euler[1] = -0.4559 + pi
+                    # camera_to_tag_euler[2] += pi
+                    # print("new", int(markedID[0]), camera_to_tag_euler)
+                    # camera_to_tag_quat = Rotation.from_euler("xyz", camera_to_tag_euler, degrees=False).as_quat()
 
                     camera_to_tag_tf_msg = TransformStamped()
                     camera_to_tag_tf_msg._header._stamp = current_time_msg
