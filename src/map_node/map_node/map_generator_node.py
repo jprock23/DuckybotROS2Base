@@ -1,9 +1,10 @@
+import math
 from cv2 import normalize
 import rclpy
 from geometry_msgs.msg import Point, Pose, Transform, TransformStamped, Vector3
 import numpy as np
 from builtin_interfaces.msg import Duration
-from math import floor, sqrt
+from math import floor, pi, sqrt
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
 from scipy.spatial import ConvexHull
@@ -64,12 +65,15 @@ class Map_Generator_Node(Node):
     def corners_in_map_frame(self, tag_to_map_tf: Transform) -> tuple:
         # corner points in the tag's frame, same ordering as corners in cv2.aruco
         r = sqrt(self._box_width**2 + self._box_flap**2)
+        # z = 2*math.sin(.4559/2) * self._box_width
+        z = 0.0
         corners_in_tag_frame = (
             (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
-            (r - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
-            (r - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
+            (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, -z),                        # upper right
+            (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, -z),    # lower right
             (-0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0)                      # lower left
         )
+        print(corners_in_tag_frame)
         # tag to map as a homogenous transformation matrix
         tag_to_map_rmtx = Rotation.from_quat([
             tag_to_map_tf._rotation._x,
@@ -86,7 +90,7 @@ class Map_Generator_Node(Node):
         tag_to_map_tf_mtx[:3, :3] = tag_to_map_rmtx
         tag_to_map_tf_mtx[:3, 3] = tag_to_map_tvec
         # transform each corner point to map's frame
-        corners_in_camera_frame = []
+        corners_in_map_frame = []
         for tag_pt in corners_in_tag_frame:
             # transform point from cartesian coordinate to homogenous coordinate
             tag_pt_homogeneous = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point
@@ -94,12 +98,16 @@ class Map_Generator_Node(Node):
             # doing the transform
             transformed_homogeneous_pt = np.matmul(tag_to_map_tf_mtx, tag_pt_homogeneous).flatten()
             # recover from homogenous coordinate to cartesian coordinate
-            corners_in_camera_frame.append((
+            corners_in_map_frame.append([
                 transformed_homogeneous_pt[0] / float(transformed_homogeneous_pt[3]),
                 transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
                 transformed_homogeneous_pt[2] / float(transformed_homogeneous_pt[3])
-            ))
-        return tuple(corners_in_camera_frame)
+            ])
+        print("original", corners_in_map_frame)
+        # corners_in_map_frame[1][2] += 2*math.sin(.4559/2) * self._box_width
+        # corners_in_map_frame[2][2] += 2*math.sin(.4559/2) * self._box_width
+        # print("-z", corners_in_map_frame)
+        return tuple(corners_in_map_frame)
 
     def normalize(self, val: float):
         # real value -> grid index, does not check for index validity
@@ -122,7 +130,6 @@ class Map_Generator_Node(Node):
                     rclpy.time.Time()).transform
                 # calculate corner points in the camera's frame
                 corners_in_camera_frame = self.corners_in_map_frame(tag_to_map_tf)
-                print(f'corners:: {corners_in_camera_frame}')
                 print(f'id:: {tag_id}\n')
                 box_corners.append(corners_in_camera_frame)
                 # marker

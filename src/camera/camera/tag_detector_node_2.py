@@ -1,3 +1,4 @@
+import math
 import cv2
 import numpy as np
 import rclpy
@@ -12,6 +13,7 @@ from geometry_msgs.msg import (
     TransformStamped,
     Vector3
 )
+from math import modf, pi
 from math import modf, pi
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
