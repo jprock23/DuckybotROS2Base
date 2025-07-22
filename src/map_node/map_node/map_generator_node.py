@@ -112,6 +112,9 @@ class Map_Generator_Node(Node):
         box_corners = []
         try:
             for tag_id in msg._ids:
+                #Tag 0 is on the robot so should not be used to construct a map
+                if tag_id == 0:
+                    continue
                 # grab transform
                 tag_to_map_tf: Transform = self._tf_buffer.lookup_transform(
                     "map",
