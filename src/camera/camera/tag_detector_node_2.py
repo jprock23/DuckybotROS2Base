@@ -59,11 +59,13 @@ class TagDetectorNode(Node):
         self._subscriber = self.create_subscription(CompressedImage, "/camera/image_raw/compressed", self.img_processing, 10)
 
         # broadcaster
-        self._camera_to_tag_tf_broadcaster = StaticTransformBroadcaster(self)
+        self._camera_to_map_tf_broadcaster = StaticTransformBroadcaster(self)
         self._has_transform = False
 
+        self._camera_to_tag_tf_broadcaster = TransformBroadcaster(self)
+
         # publishers
-        self._tag_poses_pub = self.create_publisher(PoseArray, "/tag_poses", 10)
+        self._tag_poses_pub = self.create_publisher(TagPoseArray, "/tag_poses", 10)
         self._tag_pose_markers_pub = self.create_publisher(MarkerArray, "/tag_pose_markers", 10)
         self._timer_period = float(0.25)
         self._timer = self.create_timer(self._timer_period, self.calc_tag_pose)
@@ -117,7 +119,7 @@ class TagDetectorNode(Node):
         tf_msg._transform._rotation._y = qy
         tf_msg._transform._rotation._z = qz
         tf_msg._transform._rotation._w = qw
-        self._camera_to_tag_tf_broadcaster.sendTransform(tf_msg)
+        self._camera_to_map_tf_broadcaster.sendTransform(tf_msg)
         self._has_transform = True
 
     def img_processing(self, msg: CompressedImage):
@@ -141,9 +143,9 @@ class TagDetectorNode(Node):
             frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
             current_time_msg = self.get_clock().now().to_msg()
 
-            # tag_poses = PoseArray()
-            # tag_poses._header._stamp = current_time_msg
-            # tag_poses._header._frame_id = "ceil_camera"
+            tag_poses = TagPoseArray()
+            tag_poses.poses._header._stamp = current_time_msg
+            tag_poses.poses._header._frame_id = "ceil_camera"
             tag_ids = []
             tvecs = []
             rvecs = []
@@ -166,7 +168,7 @@ class TagDetectorNode(Node):
                     frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
                     tvecs.append(np.squeeze(tvec))
                     rvecs.append(np.squeeze(rvec))
-                    tag_ids.append(np.squeeze(markedID))
+                    tag_ids.append(int(np.squeeze(markedID)))
 
             if (not self._has_transform and (len(tvecs) >= 3)):
                 #if no camera_to_map transform is defined, and at least three tags have been seen, define the transform
@@ -196,9 +198,9 @@ class TagDetectorNode(Node):
                     camera_to_map_tf._translation._z
                 ]
                 
-                tag_poses_camera_frame = PoseArray()
-                tag_poses_camera_frame._header._stamp = self.get_clock().now().to_msg()
-                tag_poses_camera_frame._header._frame_id = "map"
+                # tag_poses_map_frame = TagPoseArray()
+                # tag_poses_map_frame.poses._header._stamp = self.get_clock().now().to_msg()
+                # tag_poses_map_frame.poses._header._frame_id = "map"
                 
                 for i in range(len(tvecs)):
                     tvec = tvecs[i]
@@ -231,42 +233,54 @@ class TagDetectorNode(Node):
                         z = quat_list[2],
                         w = quat_list[3]
                     )
-                    tag_poses_camera_frame._poses.append(tag_pose)
+                    tag_poses.poses.poses.append(tag_pose)
                     
-                    # T_(camera->tag)
-                    camera_to_tag_tvec = np.array([
-                            -tag_pose.position.x,
-                            -tag_pose.position.y,
-                            -tag_pose.position.z,
+                    # T_(map->tag)
+                    map_to_tag_tvec = np.array([
+                            tag_pose.position.x,
+                            tag_pose.position.y,
+                            tag_pose.position.z,
                     ])
                         
-                    camera_to_tag_quat = quaternion_multiply(
-                        np.array([0,0,0,1]),
-                        ((Rotation.from_quat([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w])).inv()).as_quat()
+                    map_to_tag_quat = quaternion_multiply(
+                        np.array([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]),
+                        (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
                     )
+
+                    # map_to_tag_tvec = np.array([
+                    #     -tag_pose.position.x,
+                    #     -tag_pose.position.y,
+                    #     -tag_pose.position.z,
+                    # ])
+                
+                    # map_to_tag_quat = quaternion_multiply(
+                    #     np.array([0, 0, 0, 1], dtype=float),
+                    #     (Rotation.from_quat([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]).inv()).as_quat()
+                    # )
                     
-                    camera_to_tag_tf = TransformStamped()
-                    camera_to_tag_tf._header._stamp = current_time_msg
-                    camera_to_tag_tf._header._frame_id = "ceil_camera"
-                    camera_to_tag_tf._child_frame_id = "tag_{}".format(tag_ids[i])
+                    map_to_tag_tf = TransformStamped()
+                    map_to_tag_tf._header._stamp = current_time_msg
+                    map_to_tag_tf._header._frame_id = "map"
+                    map_to_tag_tf._child_frame_id = "tag_{}".format(tag_ids[i])
                     
-                    camera_to_tag_tf.transform.translation = Vector3(
-                            x=float(camera_to_tag_tvec[0]),
-                            y=float(camera_to_tag_tvec[1]),
-                            z=float(camera_to_tag_tvec[2])
+                    map_to_tag_tf.transform.translation = Vector3(
+                            x=float(map_to_tag_tvec[0]),
+                            y=float(map_to_tag_tvec[1]),
+                            z=float(map_to_tag_tvec[2])
                         )
                     
-                    camera_to_map_tf.rotation = Quaternion(
-                            x=float(camera_to_tag_quat[0]),
-                            y=float(camera_to_tag_quat[1]),
-                            z=float(camera_to_tag_quat[2]),
-                            w=float(camera_to_tag_quat[3])
+                    map_to_tag_tf.transform.rotation = Quaternion(
+                            x=float(map_to_tag_quat[0]),
+                            y=float(map_to_tag_quat[1]),
+                            z=float(map_to_tag_quat[2]),
+                            w=float(map_to_tag_quat[3])
                     )
                     
-                    self._camera_to_tag_tf_broadcaster.sendTransform(camera_to_tag_tf)
+                    self._camera_to_tag_tf_broadcaster.sendTransform(map_to_tag_tf)
 
 
-                self._tag_poses_pub.publish(tag_poses_camera_frame)
+                tag_poses.ids = tag_ids
+                self._tag_poses_pub.publish(tag_poses)
                 cv2.imshow("test", frame)
                 cv2.waitKey(1)
     
