@@ -1,7 +1,7 @@
 import math
 from cv2 import normalize
 import rclpy
-from geometry_msgs.msg import Point, Pose, Transform, TransformStamped, Vector3
+from geometry_msgs.msg import Point, Pose, Transform, TransformStamped, Vector3, PoseArray
 import numpy as np
 from builtin_interfaces.msg import Duration
 from math import floor, pi, sqrt
@@ -21,10 +21,9 @@ class Map_Generator_Node(Node):
     def __init__(self, node_name: str = "map_generator_node"):
         super().__init__(node_name)
         ##ASSUMES TAGS ARE IN UPPER RIGHT CORNER OF BOX WITH THE TOP BEING THE SHORTEST SIDE
-        init_time_msg = self.get_clock().now().to_msg()
-        # constants
-        self._map_height = 1.82 * 2
-        self._map_width = 1.82 * 2
+        #constants
+        self._map_height = 1.82
+        self._map_width = 1.82
         self._resolution = 0.01
         self._n_grid_rows = self.normalize(self._map_height)
         self._n_grid_cols = self.normalize(self._map_width)
@@ -32,33 +31,28 @@ class Map_Generator_Node(Node):
         self._box_height = 0.23
         self._box_flap = 0.076
         self._marker_size = 0.1397
-        # T_(map -> ceil_camera)
-        tf_map_to_camera = TransformStamped()
-        tf_map_to_camera._header._stamp = init_time_msg
-        tf_map_to_camera._header._frame_id = "map"
-        tf_map_to_camera._child_frame_id = "ceil_camera"
-        tf_map_to_camera._transform._translation = Vector3(
-            x=(0.5 * self._map_width), y=(0.5 * self._map_height), z=(-1.8)
-        )
-        StaticTransformBroadcaster(self).sendTransform(tf_map_to_camera) # no need to save because only doing this once
+
         # grid
         self._map = np.full(shape=(self._n_grid_rows, self._n_grid_cols), fill_value=0.5)
         # first map msg
         first_map_msg = OccupancyGrid()
-        first_map_msg._header._stamp = init_time_msg
-        first_map_msg._header._frame_id = "map"
-        first_map_msg._info._map_load_time = init_time_msg
-        first_map_msg._info._resolution = self._resolution
-        first_map_msg._info._height = self._n_grid_rows
-        first_map_msg._info._width = self._n_grid_cols
-        first_map_msg._data = [int(100 * val) for val in self._map.flatten()]
-        self.create_publisher(OccupancyGrid, '/map', 10).publish(first_map_msg) # no need to save because only doing this once
-        # subscriber
-        self._tag_sub = self.create_subscription(TagPoseArray, '/tag_poses', self.update_map, 10)
-        # publishers
+        first_map_msg.header._stamp = self.get_clock().now().to_msg()
+        first_map_msg.header._frame_id = "map"
+        first_map_msg.info.map_load_time =  self.get_clock().now().to_msg()
+        first_map_msg.info.resolution = self._resolution
+        first_map_msg.info.height = self._n_grid_rows
+        first_map_msg.info.width = self._n_grid_cols
+        first_map_msg.data = [int(100 * val) for val in self._map.flatten()]
+        self.create_publisher(OccupancyGrid, 'map', 10).publish(first_map_msg) # no need to save because only doing this once
+        
+        #Subscriber
+        self.tag_pose_sub = self.create_subscription(PoseArray, '/tag_poses', self.new_update_map, 10)
+        
+        #Publishers
         self._map_update_pub = self.create_publisher(OccupancyGridUpdate, '/map_updates', 10)
-        self._box_pts_markers_pub = self.create_publisher(MarkerArray, '/box_pts_markers', 10)
-        # listeners
+        # self._box_pts_markers_pub = self.create_publisher(MarkerArray, '/box_pts_markers', 10)
+        
+        #Listeners
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
          
@@ -66,14 +60,13 @@ class Map_Generator_Node(Node):
         # corner points in the tag's frame, same ordering as corners in cv2.aruco
         r = sqrt(self._box_width**2 + self._box_flap**2)
         # z = 2*math.sin(.4559/2) * self._box_width
-        z = 0.0
         corners_in_tag_frame = (
             (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
-            (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, -z),                        # upper right
-            (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, -z),    # lower right
+            (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
+            (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
             (-0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0)                      # lower left
         )
-        print(corners_in_tag_frame)
+        
         # tag to map as a homogenous transformation matrix
         tag_to_map_rmtx = Rotation.from_quat([
             tag_to_map_tf._rotation._x,
@@ -81,14 +74,17 @@ class Map_Generator_Node(Node):
             tag_to_map_tf._rotation._z,
             tag_to_map_tf._rotation._w
         ]).as_matrix() # 3x3 rotation matrix
+        
         tag_to_map_tvec = [
             tag_to_map_tf._translation._x,
             tag_to_map_tf._translation._y,
             tag_to_map_tf._translation._z
         ] # 3x1 translation vector
+        
         tag_to_map_tf_mtx = np.eye(N=4) # 4x4 homogenous transformation matrix
         tag_to_map_tf_mtx[:3, :3] = tag_to_map_rmtx
         tag_to_map_tf_mtx[:3, 3] = tag_to_map_tvec
+        
         # transform each corner point to map's frame
         corners_in_map_frame = []
         for tag_pt in corners_in_tag_frame:
@@ -103,15 +99,157 @@ class Map_Generator_Node(Node):
                 transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
                 transformed_homogeneous_pt[2] / float(transformed_homogeneous_pt[3])
             ])
-        print("original", corners_in_map_frame)
+            
         # corners_in_map_frame[1][2] += 2*math.sin(.4559/2) * self._box_width
         # corners_in_map_frame[2][2] += 2*math.sin(.4559/2) * self._box_width
         # print("-z", corners_in_map_frame)
         return tuple(corners_in_map_frame)
+        
+    def corners_in_camera_frame(self, tag_to_camera_tf: Transform):
+        # corner points in the tag's frame, same ordering as corners in cv2.aruco
+        corners_in_tag_frame = (
+            (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
+            (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
+            (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
+            (-0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0)                      # lower left
+        )
+        
+        # tag to camera as a homogenous transformation matrix
+        tag_to_camera_rmtx = Rotation.from_quat([
+            tag_to_camera_tf._rotation._x,
+            tag_to_camera_tf._rotation._y,
+            tag_to_camera_tf._rotation._z,
+            tag_to_camera_tf._rotation._w
+        ]).as_matrix() # 3x3 rotation matrix
+        
+        tag_to_map_tvec = [
+            tag_to_camera_tf._translation._x,
+            tag_to_camera_tf._translation._y,
+            tag_to_camera_tf._translation._z
+        ] # 3x1 translation vector
+        
+        tag_to_camera_tf_mtx = np.eye(N=4) # 4x4 homogenous transformation matrix
+        tag_to_camera_tf_mtx[:3, :3] = tag_to_camera_rmtx
+        tag_to_camera_tf_mtx[:3, 3] = tag_to_map_tvec
+        
+        # transform each corner point to camera's frame
+        corners_in_camera_frame = []
+        for tag_pt in corners_in_tag_frame:
+            # transform point from cartesian coordinate to homogenous coordinate
+            tag_pt_homogeneous = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point
+            tag_pt_homogeneous[:3, 0] = tag_pt
+            # doing the transform
+            transformed_homogeneous_pt = np.matmul(tag_to_camera_tf_mtx, tag_pt_homogeneous).flatten()
+            # recover from homogenous coordinate to cartesian coordinate
+            corners_in_camera_frame.append([
+                transformed_homogeneous_pt[0] / float(transformed_homogeneous_pt[3]),
+                transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
+                transformed_homogeneous_pt[2] / float(transformed_homogeneous_pt[3])
+            ])
+            
+        return tuple(corners_in_camera_frame)
+
+    def box_corners_in_map_frame(self, corners, camera_to_map_tf):
+        rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
+        rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
+        homogenous_pt = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point
+        homogenous_pt[:3, 0] = tvec
+        transformed_homogeneous_pt = np.matmul(camera_to_map_mtx, homogenous_pt).flatten()
+        transformed_pt = [
+            transformed_homogeneous_pt[0] / float(transformed_homogeneous_pt[3]),
+            transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
+            0.0
+        ]
 
     def normalize(self, val: float):
         # real value -> grid index, does not check for index validity
         return floor(val / self._resolution)
+
+
+    def new_update_map(self, msg: PoseArray):        
+        box_corners_camera_frame = []
+        box_cornes_map_frame = [] 
+        try:
+            for tag_id in msg._ids:
+                #Tag 0 is on the robot so should not be used to construct a map
+                if tag_id == 0:
+                    continue
+                # grab transform
+                tag_to_camera_tf: Transform = self._tf_buffer.lookup_transform(
+                    "camera",
+                    "tag_{}".format(tag_id),
+                    rclpy.time.Time()).transform
+                box_corners_camera_frame = self.corners_in_camera_frame(tag_to_camera_tf)
+                
+                
+                
+                
+        except:
+            pass
+         # make new grid with map corners
+        map_given_current_obs: np.ndarray = np.full(shape=self._map.shape, fill_value=0.25) # assume no box
+        for box in box_cornes_map_frame:
+            '''
+                - idea: 
+                    - represent each cell in the grid as a point
+                    - create a convex hull using box corners
+                    - for each cell, create a convex hull using 
+                        (box corners + cell point)
+                    - if the (new convex hull - original convex hull == 0), then
+                      adding the cell point does not change the convex hull, 
+                      meaning the cell point is inside the box
+                - optimization strategy:  only check hypothetical cells close to the box
+                - addition note: need to check if hypothetical cells are in the map
+            '''
+            box_2d = [(pt[0], pt[1]) for pt in box]
+            hull_vertices_from_box = set(ConvexHull(box_2d).vertices)
+            # optimization strategy: only check cells close to the box
+            for x_val in np.arange(
+                min(box[0][0], box[1][0], box[2][0], box[3][0]),
+                max(box[0][0], box[1][0], box[2][0], box[3][0]) + self._resolution,
+                self._resolution
+            ):
+                for y_val in np.arange(
+                    min(box[0][1], box[1][1], box[2][1], box[3][1]),
+                    max(box[0][1], box[1][1], box[2][1], box[3][1]) + self._resolution,
+                    self._resolution
+                ):
+                    
+                    cell_row_index = self.normalize(y_val)
+                    cell_col_index = self.normalize(x_val)
+                    if (
+                        ((0 <= cell_row_index) and (cell_row_index < self._n_grid_rows))
+                        and ((0 <= cell_col_index) and (cell_col_index < self._n_grid_cols))
+                    ):
+                        new_hull_pts = box_2d.copy()
+                        new_hull_pts.append((x_val, y_val))
+                        new_hull_vertices = set(ConvexHull(new_hull_pts).vertices)
+                        if (len(new_hull_vertices.difference(hull_vertices_from_box)) == 0): # set difference order matters
+                            map_given_current_obs[cell_row_index][cell_col_index] = 0.75
+        # updating occupancy grid probabilities, see https://jokane.net/x52/13-slam/
+        for row_index in range(self._n_grid_rows):
+            for col_index in range(self._n_grid_cols):
+                pr_cell_occupied_given_current_obs = map_given_current_obs[row_index][col_index]
+                pr_cell_free_given_current_obs = 1.0 - pr_cell_occupied_given_current_obs
+                pr_cell_occupied_given_previous_obs = self._map[row_index][col_index]
+                pr_cell_free_given_previous_obs = 1.0 - pr_cell_occupied_given_previous_obs
+                pr_cell_occupied = (
+                    1.0 + (
+                        (pr_cell_free_given_current_obs * pr_cell_free_given_previous_obs) 
+                        / (pr_cell_occupied_given_current_obs * pr_cell_occupied_given_previous_obs)
+                    )
+                ) ** (-1)
+                self._map[row_index][col_index] = pr_cell_occupied
+        # update map
+        grid_update_msg = OccupancyGridUpdate()
+        grid_update_msg.header = Header()
+        grid_update_msg.header.frame_id = "map"
+        grid_update_msg.header.stamp = self.get_clock().now().to_msg()
+        grid_update_msg._height = self._n_grid_rows
+        grid_update_msg._width = self._n_grid_cols
+        grid_update_msg.data = [int(100 * val) for val in self._map.flatten()]
+        self._map_update_pub.publish(grid_update_msg)
+        
 
     def update_map(self, msg: TagPoseArray):
         current_time_msg = self.get_clock().now().to_msg()

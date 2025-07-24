@@ -5,15 +5,7 @@ import rclpy
 import yaml
 from builtin_interfaces.msg import Duration
 from cv_bridge import CvBridge
-from geometry_msgs.msg import (
-    Point,
-    Pose, 
-    PoseArray, 
-    Quaternion,
-    Transform,
-    TransformStamped,
-    Vector3
-)
+from geometry_msgs.msg import Point, Pose, PoseArray, Quaternion, Transform, TransformStamped, Vector3
 from math import modf, pi, acos
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
@@ -80,6 +72,7 @@ class TagDetectorNode(Node):
         self._tf_listener = TransformListener(self._tf_buffer, self)
 
     def make_transform(self, tvecs):
+        #defines the transform from the map to the camera
         min_x, min_y = float("inf"), float("inf")
         max_x, max_y = -float("inf"), -float("inf")
 
@@ -106,6 +99,7 @@ class TagDetectorNode(Node):
         corners[2][2] = tvecs[idx_D][2]
 
         # magic method from guy https://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
+        # to find a quartenion representing the rotation from one 3D-vector to another
         norm_vector = np.cross(np.array(corners[1]) - np.array(corners[2]), np.array(corners[0]) - np.array(corners[2]))
         norm_vector /= np.linalg.norm(norm_vector)
         qx, qy, qz = np.cross(np.array([0.0, 0.0, 1.0]), norm_vector)
@@ -115,9 +109,10 @@ class TagDetectorNode(Node):
         tf_msg._header._stamp = self.get_clock().now().to_msg()
         tf_msg._header._frame_id = "ceil_camera"
         tf_msg._child_frame_id = "map"
-        tf_msg._transform._translation._x = min_x
-        tf_msg._transform._translation._y = max_y
-        tf_msg._transform._translation._z = tvecs[idx_A][2]
+        # define the map origin to be at the bottom right corner, the location of tag 1
+        tf_msg._transform._translation._x = corners[0][0]
+        tf_msg._transform._translation._y = corners[0][1]
+        tf_msg._transform._translation._z = corners[0][2]
         tf_msg._transform._rotation._x = qx
         tf_msg._transform._rotation._y = qy
         tf_msg._transform._rotation._z = qz
@@ -126,6 +121,7 @@ class TagDetectorNode(Node):
         self._has_transform = True
 
     def img_processing(self, msg: CompressedImage):
+        #stores published images and processes them for marker detection and pose estiamtion
         self._img = self._bridge.compressed_imgmsg_to_cv2(msg, 'bgr8')
         # flip image if necessary
         if (self.get_parameter('flip').get_parameter_value().bool_value):
@@ -170,8 +166,10 @@ class TagDetectorNode(Node):
                     frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
                     tvecs.append(np.squeeze(tvec))
                     rvecs.append(np.squeeze(rvec))
+                    tag_ids.append(np.squeeze(markedID))
 
             if (not self._has_transform and (len(tvecs) >= 3)):
+                #if no camera_to_map transform is defined, and at least three tags have been seen, define the transform
                 self.make_transform(tvecs)
             camera_to_map_tf = None
             try:
@@ -191,14 +189,17 @@ class TagDetectorNode(Node):
                         camera_to_map_tf._rotation._w
                     ]
                 ).as_matrix()
+                
                 camera_to_map_mtx[:3, 3] = [
                     camera_to_map_tf._translation._x,
                     camera_to_map_tf._translation._y,
                     camera_to_map_tf._translation._z
                 ]
+                
                 tag_poses_camera_frame = PoseArray()
                 tag_poses_camera_frame._header._stamp = self.get_clock().now().to_msg()
                 tag_poses_camera_frame._header._frame_id = "map"
+                
                 for i in range(len(tvecs)):
                     tvec = tvecs[i]
                     rvec = rvecs[i]
@@ -212,8 +213,9 @@ class TagDetectorNode(Node):
                         transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
                         0.0
                     ]
+                    
                     tag_pose = Pose()
-                    tag_pose._position = Point(
+                    tag_pose.position = Point(
                         x = transformed_pt[0],
                         y = transformed_pt[1],
                         z = transformed_pt[2],
@@ -223,70 +225,51 @@ class TagDetectorNode(Node):
                     rotation_as_euler = Rotation.from_quat(quat_list).as_euler('xyz')
                     quat_list = Rotation.from_euler('xyz', [0, 0, rotation_as_euler[2]]).as_quat()
 
-                    tag_pose._orientation = Quaternion(
+                    tag_pose.orientation = Quaternion(
                         x = quat_list[0],
                         y = quat_list[1],
                         z = quat_list[2],
                         w = quat_list[3]
                     )
-
-                    # tag_pose._orientation = Quaternion(
-                    #     x = rmtx_as_quat[0],
-                    #     y = rmtx_as_quat[1],
-                    #     z = rmtx_as_quat[2],
-                    #     w = rmtx_as_quat[3]
-                    # )
                     tag_poses_camera_frame._poses.append(tag_pose)
-
-
+                    
+                    # T_(camera->tag)
+                    camera_to_tag_tvec = np.array([
+                            -tag_pose.position.x,
+                            -tag_pose.position.y,
+                            -tag_pose.position.z,
+                    ])
+                        
+                    camera_to_tag_quat = quaternion_multiply(
+                        np.array([0,0,0,1]),
+                        ((Rotation.from_quat([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w])).inv()).as_quat()
+                    )
+                    
+                    camera_to_tag_tf = TransformStamped()
+                    camera_to_tag_tf._header._stamp = current_time_msg
+                    camera_to_tag_tf._header._frame_id = "ceil_camera"
+                    camera_to_tag_tf._child_frame_id = "tag_{}".format(tag_ids[i])
+                    
+                    camera_to_tag_tf.transform.translation = Vector3(
+                            x=float(camera_to_tag_tvec[0]),
+                            y=float(camera_to_tag_tvec[1]),
+                            z=float(camera_to_tag_tvec[2])
+                        )
+                    
+                    camera_to_map_tf.rotation = Quaternion(
+                            x=float(camera_to_tag_quat[0]),
+                            y=float(camera_to_tag_quat[1]),
+                            z=float(camera_to_tag_quat[2]),
+                            w=float(camera_to_tag_quat[3])
+                    )
+                    
+                    self._camera_to_tag_tf_broadcaster.sendTransform(camera_to_tag_tf)
 
 
                 self._tag_poses_pub.publish(tag_poses_camera_frame)
                 cv2.imshow("test", frame)
                 cv2.waitKey(1)
-                    
-                    # T_(camera->tag)
-                    # camera_to_tag_tvec = np.subtract(
-                    #     np.array(tag_to_camera_tvec),
-                    #     np.array([0.0, 0.0, 0.0])
-                    # )
-                    # camera_to_tag_quat = quaternion_multiply(
-                    #     tag_to_camera_quat,
-                    #     ((Rotation.from_quat([0.0, 0.0, 0.0, 1.0])).inv()).as_quat()
-                    # )
-
-                    # camera_to_tag_euler = Rotation.from_quat(camera_to_tag_quat).as_euler("xyz")
-                    # print("old (xyz)", 0, camera_to_tag_euler)
-                    # print("old (XYZ)", Rotation.from_quat(camera_to_tag_quat).as_euler("XYZ"))
-                    # camera_to_tag_euler[0] = pi
-                    # camera_to_tag_euler[1] = 0.0
-                    # print("new", 0, camera_to_tag_euler)
-                    # camera_to_tag_quat = Rotation.from_euler("xyz", camera_to_tag_euler, degrees=False).as_quat()
-
-                    # camera_to_tag_tf_msg = TransformStamped()
-                    # camera_to_tag_tf_msg._header._stamp = current_time_msg
-                    # camera_to_tag_tf_msg._header._frame_id = "ceil_camera"
-                    # camera_to_tag_tf_msg._child_frame_id = "tag_{}".format(markedID[0])
-                    # camera_to_tag_tf_msg._transform._translation = Vector3(
-                    #     x=float(camera_to_tag_tvec[0]),
-                    #     y=float(camera_to_tag_tvec[1]),
-                    #     z=float(camera_to_tag_tvec[2])
-                    # )
-                    # camera_to_tag_tf_msg._transform._rotation = Quaternion(
-                    #     x=float(camera_to_tag_quat[0]),
-                    #     y=float(camera_to_tag_quat[1]),
-                    #     z=float(camera_to_tag_quat[2]),
-                    #     w=float(camera_to_tag_quat[3])
-                    # )
-                    # self._camera_to_tag_tf_broadcaster.sendTransform(camera_to_tag_tf_msg)
-        # publish stuff
-        # tag_poses_msg = TagPoseArray()
-        # tag_poses_msg._poses = tag_poses
-        # tag_poses_msg._ids = tag_ids
-        
-        # self._tag_pose_markers_pub.publish(tag_pose_markers)
-        # cv2 visualization
-        
+    
 
 def main(args=None):
     rclpy.init(args=args)
