@@ -22,15 +22,17 @@ class Map_Generator_Node(Node):
         super().__init__(node_name)
         ##ASSUMES TAGS ARE IN UPPER RIGHT CORNER OF BOX WITH THE TOP BEING THE SHORTEST SIDE
         #constants
-        self._map_height = 1.82
-        self._map_width = 1.82
+        self._map_height = 1.9
+        self._map_width = 1.9
         self._resolution = 0.01
         self._n_grid_rows = self.normalize(self._map_height)
         self._n_grid_cols = self.normalize(self._map_width)
         self._box_width = 0.155
         self._box_height = 0.23
         self._box_flap = 0.076
-        self._marker_size = 0.1397
+        # self._marker_size = 0.1397 # 5.5 in
+        self._marker_size = 0.1016 # 4 in
+
 
         # grid
         self._map = np.full(shape=(self._n_grid_rows, self._n_grid_cols), fill_value=0.5)
@@ -58,8 +60,6 @@ class Map_Generator_Node(Node):
          
     def corners_in_map_frame(self, tag_to_map_tf: Transform) -> tuple:
         # corner points in the tag's frame, same ordering as corners in cv2.aruco
-        r = sqrt(self._box_width**2 + self._box_flap**2)
-        # z = 2*math.sin(.4559/2) * self._box_width
         corners_in_tag_frame = (
             (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
             (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
@@ -103,9 +103,6 @@ class Map_Generator_Node(Node):
         return tuple(corners_in_map_frame)
         
 
-        return tuple(corners_in_camera_frame)
-
-
     def normalize(self, val: float):
         # real value -> grid index, does not check for index validity
         return floor(val / self._resolution)
@@ -118,8 +115,8 @@ class Map_Generator_Node(Node):
         try:
             for tag_id in msg._ids:
                 #Tag 0 is on the robot so should not be used to construct a map
-                if tag_id == 0:
-                    continue
+                # if tag_id == 0:
+                #     continue
                 # grab transform
                 tag_to_map_tf: Transform = self._tf_buffer.lookup_transform(
                     "map",
