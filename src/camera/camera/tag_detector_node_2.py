@@ -1,4 +1,5 @@
 import math
+from tracemalloc import start
 import cv2
 import numpy as np
 import rclpy
@@ -49,10 +50,11 @@ class TagDetectorNode(Node):
         params = cv2.aruco.DetectorParameters()
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
         self._detector = cv2.aruco.ArucoDetector(
-            cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50), 
+            cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100), 
             params
         ) 
-        self.board = cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=0.028, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50))
+
+        self.boards = self.generate_boards(36, .028, 2)
 
         self._bridge = CvBridge()
         
@@ -72,6 +74,13 @@ class TagDetectorNode(Node):
 
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
+
+    def generate_boards(self, num, seperation, start_id):
+        boards = []
+        for i in range(start_id - 1, num, 2):
+            print("ids:: ", i, " ", i + 1)
+            boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100),ids=np.array([i, i + 1])))
+        return boards
 
     def make_transform(self, tvecs):
         self._box_width = 0.155
@@ -101,17 +110,13 @@ class TagDetectorNode(Node):
         corners[0][2] = tvecs[idx_A][2]
         corners[1][2] = tvecs[idx_C][2]
         corners[2][2] = tvecs[idx_D][2]
-        print('corners', corners)
 
         # magic method from guy https://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
         # to find a quartenion representing the rotation from one 3D-vector to another
         norm_vector = np.cross(np.array(corners[1]) - np.array(corners[2]), np.array(corners[0]) - np.array(corners[2]))
-        print('norm:: ', norm_vector)
         norm_vector /= np.linalg.norm(norm_vector)
         qx, qy, qz = np.cross(np.array([0.0, 0.0, 1.0]), norm_vector)
         qw = 1.0 + np.dot(np.array([0.0, 0.0, 1.0]), norm_vector)
-
-        print("quat:: ", qx, qy, qz)
 
         tf_msg = TransformStamped()
         tf_msg._header._stamp = self.get_clock().now().to_msg()
@@ -141,45 +146,48 @@ class TagDetectorNode(Node):
         self._img = cv2.filter2D(self._img, -1, kernel, borderType=cv2.BORDER_CONSTANT)
 
     def calc_tag_pose(self):
+
         (corners, ids, rejected) = self._detector.detectMarkers(self._img)
-        self._detector.refineDetectedMarkers(self._img, self.board, corners, ids, rejected, self._mtx, self._dst)
+        for board in self.boards:
+            self._detector.refineDetectedMarkers(self._img, board, corners, ids, rejected, self._mtx, self._dst)
 
-        if(len(corners) > 0):
-            # cv2 visualization
-            frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
-            current_time_msg = self.get_clock().now().to_msg()
+            if(len(corners) > 0):
+                # cv2 visualization
+                frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
+                current_time_msg = self.get_clock().now().to_msg()
 
-            tag_poses = TagPoseArray()
-            tag_poses.poses._header._stamp = current_time_msg
-            tag_poses.poses._header._frame_id = "ceil_camera"
-            tag_ids = []
-            tvecs = []
-            rvecs = []
-            rvec = None
-            tvec = None
+                tag_poses = TagPoseArray()
+                tag_poses.poses._header._stamp = current_time_msg
+                tag_poses.poses._header._frame_id = "ceil_camera"
+                tag_ids = []
+                tvecs = []
+                rvecs = []
+                rvec = None
+                tvec = None
 
-            # # do stuff with the pose of each tag
-            for (markerCorners, markerID) in zip(corners, ids):
-                #standard tag pose calculation following the cv2 documentation
-                # obj_pts = np.array([
-                #     [-self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
-                #     [self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
-                #     [self._marker_size / 2.0, -self._marker_size / 2.0, 0.0],
-                #     [-self._marker_size / 2.0, -self._marker_size / 2.0, 0.0]
-                # ])
-                # retval, rvec, tvec = cv2.solvePnP(obj_pts, np.squeeze(markerCorners), self._mtx, self._dst, cv2.SOLVEPNP_IPPE_SQUARE)
-                obj_pts, img_pts = self.board.matchImagePoints(corners, ids)
-                retval, rvec, tvec = cv2.solvePnP(obj_pts, img_pts, self._mtx, self._dst)
-                print(tvec)
-                if (retval > 0):
-                    frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
-                    tvecs.append(np.squeeze(tvec))
-                    rvecs.append(np.squeeze(rvec))
-                    tag_ids.append(int(np.squeeze(markerID)))
+                # do stuff with the pose of each tag
+                for (markerCorners, markerID) in zip(corners, ids):
+                    #standard tag pose calculation following the cv2 documentation
+                    # obj_pts = np.array([
+                    #     [-self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
+                    #     [self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
+                    #     [self._marker_size / 2.0, -self._marker_size / 2.0, 0.0],
+                    #     [-self._marker_size / 2.0, -self._marker_size / 2.0, 0.0]
+                    # ])
+                    # retval, rvec, tvec = cv2.solvePnP(obj_pts, np.squeeze(markerCorners), self._mtx, self._dst, cv2.SOLVEPNP_IPPE_SQUARE)
+                    obj_pts, img_pts = board.matchImagePoints(corners, ids)
+                    print('obj_pts', obj_pts)
+                    print('img_pts', img_pts)
+                    if(obj_pts is not None and img_pts is not None):
+                        retval, rvec, tvec = cv2.solvePnP(obj_pts, img_pts, self._mtx, self._dst)
+                        if (retval > 0):
+                            frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
+                            tvecs.append(np.squeeze(tvec))
+                            rvecs.append(np.squeeze(rvec))
+                            tag_ids.append(int(np.squeeze(markerID)))
 
             if (not self._has_transform and (len(tvecs) >= 3)):
                 #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
-                print('ids:: ', tvecs, ids)
                 self.make_transform(tvecs)
             camera_to_map_tf = None
             try:
@@ -228,8 +236,8 @@ class TagDetectorNode(Node):
                     )
 
                     quat_list = quaternion_multiply([camera_to_map_tf.rotation.x, camera_to_map_tf.rotation.y, camera_to_map_tf.rotation.z,camera_to_map_tf.rotation.w], rmtx_as_quat)
-                    rotation_as_euler = Rotation.from_quat(quat_list).as_euler('xyz')
-                    quat_list = Rotation.from_euler('xyz', [0, 0, rotation_as_euler[2]]).as_quat()
+                    # rotation_as_euler = Rotation.from_quat(quat_list).as_euler('xyz')
+                    # quat_list = Rotation.from_euler('xyz', [0, 0, rotation_as_euler[2]]).as_quat()
 
                     tag_pose.orientation = Quaternion(
                         x = quat_list[0],
@@ -238,7 +246,10 @@ class TagDetectorNode(Node):
                         w = quat_list[3]
                     )
                     tag_poses.poses.poses.append(tag_pose)
-                    
+                    if tag_ids[i] == 7 or tag_ids[i] == 5:
+                        print(tag_ids[i])
+                        print(tag_pose.position)
+
                     # T_(map->tag)
                     map_to_tag_tvec = np.array([
                             tag_pose.position.x,
@@ -274,8 +285,8 @@ class TagDetectorNode(Node):
 
                 tag_poses.ids = tag_ids
                 self._tag_poses_pub.publish(tag_poses)
-                cv2.imshow("test", frame)
-                cv2.waitKey(1)
+            cv2.imshow("test", frame)
+            cv2.waitKey(1)
     
 
 def main(args=None):
