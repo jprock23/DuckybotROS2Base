@@ -86,13 +86,13 @@ class TagDetectorNode(Node):
     def make_transform(self, tvecs):
         self._box_width = 0.155
         self._box_height = 0.23
-        #defines the transform from the map to the camera
+        #defines the transform from the camera to the map
         min_x, min_y = float("inf"), float("inf")
         max_x, max_y = -float("inf"), -float("inf")
 
         idx_A, idx_C, idx_D = 0, 0, 0
         for i in range(len(tvecs)):
-            x,y, z = tvecs[i]
+            x,y = tvecs[i]
             min_x = min(min_x, x)
             max_x = max(max_x, x)
             min_y = min(min_y, y)
@@ -123,7 +123,7 @@ class TagDetectorNode(Node):
         tf_msg._header._stamp = self.get_clock().now().to_msg()
         tf_msg._header._frame_id = "ceil_camera"
         tf_msg._child_frame_id = "map"
-        # define the map origin to be at the bottom right corner, the location of tag 1
+        # define the map origin to be at the bottom right corner
         tf_msg._transform._translation._x = corners[0][0] - (self._box_height)
         tf_msg._transform._translation._y = corners[0][1] + (self._box_width)
         tf_msg._transform._translation._z = corners[0][2]
@@ -150,35 +150,20 @@ class TagDetectorNode(Node):
         tvecs = []
         rvecs = []
         tag_ids = []
-              
+        current_time_msg = self.get_clock().now().to_msg()
+
+        tag_poses = TagPoseArray()
+        tag_poses.poses._header._stamp = current_time_msg
+        tag_poses.poses._header._frame_id = "ceil_camera"
         (corners, ids, rejected) = self._detector.detectMarkers(self._img)
     
         for board in self.boards:
             self._detector.refineDetectedMarkers(self._img, board, corners, ids, rejected, self._mtx, self._dst)
             if(len(corners) > 0):
                 # cv2 visualization
-                # frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
-                frame = self._img
-                current_time_msg = self.get_clock().now().to_msg()
-
-                tag_poses = TagPoseArray()
-                tag_poses.poses._header._stamp = current_time_msg
-                tag_poses.poses._header._frame_id = "ceil_camera"
-  
-                rvec = None
-                tvec = None
+                frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
 
                 # do stuff with the pose of each tag
-                # for (markerCorners, markerID) in zip(corners, ids):
-                
-                    #standard tag pose calculation following the cv2 documentation
-                    # obj_pts = np.array([
-                    #     [-self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
-                    #     [self._marker_size / 2.0, self._marker_size / 2.0, 0.0],
-                    #     [self._marker_size / 2.0, -self._marker_size / 2.0, 0.0],
-                    #     [-self._marker_size / 2.0, -self._marker_size / 2.0, 0.0]
-                    # ])
-                    # retval, rvec, tvec = cv2.solvePnP(obj_pts, np.squeeze(markerCorners), self._mtx, self._dst, cv2.SOLVEPNP_IPPE_SQUARE)
                 board_ids = []
                 board_corners = []
                 for (markerCorners, markerID) in zip(corners, ids):
@@ -188,10 +173,10 @@ class TagDetectorNode(Node):
                     if len(board_ids) == 2:
                         break
 
-                obj_pts = None
-                img_pts = None
-                print(board_ids)
-                print(board_corners)
+                rvec = None
+                tvec = None
+                # print(board_ids)
+                # print(board_corners)
                 if(len(board_ids) > 0):
                     obj_pts, img_pts = board.matchImagePoints(np.array(board_corners), np.array(board_ids))
                     # print('obj_pts', obj_pts)
@@ -205,7 +190,6 @@ class TagDetectorNode(Node):
                             print(f'id::{board_ids[0]}, tvec:: {tvec}')
                             tag_ids.append(int(np.squeeze(board_ids[0])))
 
-        print(tvecs)
         if (not self._has_transform and (len(tvecs) >= 3)):
             #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
             self.make_transform(tvecs)
@@ -256,8 +240,7 @@ class TagDetectorNode(Node):
                 )
 
                 quat_list = quaternion_multiply([camera_to_map_tf.rotation.x, camera_to_map_tf.rotation.y, camera_to_map_tf.rotation.z,camera_to_map_tf.rotation.w], rmtx_as_quat)
-                # rotation_as_euler = Rotation.from_quat(quat_list).as_euler('xyz')
-                # quat_list = Rotation.from_euler('xyz', [0, 0, rotation_as_euler[2]]).as_quat()
+
 
                 tag_pose.orientation = Quaternion(
                     x = quat_list[0],
@@ -266,8 +249,6 @@ class TagDetectorNode(Node):
                     w = quat_list[3]
                 )
                 tag_poses.poses.poses.append(tag_pose)
-                # print(tag_ids[i])
-                # print(tag_pose.position)
 
                 # T_(map->tag)
                 map_to_tag_tvec = np.array([
@@ -300,7 +281,6 @@ class TagDetectorNode(Node):
                 )
                 
                 self._camera_to_tag_tf_broadcaster.sendTransform(map_to_tag_tf)
-
 
                 tag_poses.ids = tag_ids
                 self._tag_poses_pub.publish(tag_poses)
