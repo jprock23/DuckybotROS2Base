@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'localizer=localizer.localizer_node:main'
+            'localizer=localizer.localizer_node:main',
+            'filter=localizer.filter_node:main'
         ],
     },
 )
