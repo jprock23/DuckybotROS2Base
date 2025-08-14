@@ -1,0 +1,15 @@
+digraph G {
+"ceil_camera" -> "map"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"map" -> "tag_4"[label=" Broadcaster: default_authority\nAverage rate: 4.001\nBuffer length: 4.749\nMost recent transform: 1755194183.024967\nOldest transform: 1755194178.275758\n"];
+"map" -> "tag_5"[label=" Broadcaster: default_authority\nAverage rate: 1.0\nBuffer length: 2.999\nMost recent transform: 1755194181.274956\nOldest transform: 1755194178.275758\n"];
+"map" -> "tag_8"[label=" Broadcaster: default_authority\nAverage rate: 2.223\nBuffer length: 4.499\nMost recent transform: 1755194182.774971\nOldest transform: 1755194178.275758\n"];
+"map" -> "tag_12"[label=" Broadcaster: default_authority\nAverage rate: 4.211\nBuffer length: 4.749\nMost recent transform: 1755194183.024967\nOldest transform: 1755194178.275758\n"];
+"base_link" -> "chassis"[label=" Broadcaster: default_authority\nAverage rate: 30.208\nBuffer length: 4.866\nMost recent transform: 1755194183.283964\nOldest transform: 1755194178.417752\n"];
+"map" -> "tag_6"[label=" Broadcaster: default_authority\nAverage rate: 3.778\nBuffer length: 4.5\nMost recent transform: 1755194183.024967\nOldest transform: 1755194178.524967\n"];
+"map" -> "tag_7"[label=" Broadcaster: default_authority\nAverage rate: 2.5\nBuffer length: 4.0\nMost recent transform: 1755194183.024967\nOldest transform: 1755194179.024956\n"];
+"map" -> "tag_3"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 1755194181.024914\nOldest transform: 1755194181.024914\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1755194183.287603"[ shape=plaintext ] ;
+}->"base_link";
+}

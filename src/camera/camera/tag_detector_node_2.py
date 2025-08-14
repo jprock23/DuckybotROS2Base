@@ -2,6 +2,7 @@ import math
 from tracemalloc import start
 import cv2
 import numpy as np
+from sympy import euler
 import rclpy
 import yaml
 from cv_bridge import CvBridge
@@ -12,7 +13,7 @@ from rcl_interfaces.msg import ParameterDescriptor
 from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import CompressedImage
 
-from geometry_msgs.msg import Point, Pose, PoseArray, Quaternion, Transform, TransformStamped, Vector3, PoseWithCovariance
+from geometry_msgs.msg import Point, Pose, Quaternion, Transform, TransformStamped, Vector3, PoseWithCovarianceStamped
 from std_msgs.msg import ColorRGBA
 from tf2_ros import Buffer, TransformListener, TransformBroadcaster, StaticTransformBroadcaster
 from visualization_msgs.msg import Marker, MarkerArray
@@ -71,7 +72,7 @@ class TagDetectorNode(Node):
         # publishers
         self._tag_poses_pub = self.create_publisher(TagPoseArray, "/tag_poses", 10)
         self._tag_pose_markers_pub = self.create_publisher(MarkerArray, "/tag_pose_markers", 10)
-        self.robot_pose_pub = self.create_publisher(PoseWithCovariance, "/robot_pose", 10)
+        self.robot_pose_pub = self.create_publisher(PoseWithCovarianceStamped, "/robot_pose", 10)
         self._timer = self.create_timer(0.25, self.calc_tag_pose)
 
         self._tf_buffer = Buffer()
@@ -80,7 +81,6 @@ class TagDetectorNode(Node):
     def generate_boards(self, num, seperation, start_id) -> list[cv2.aruco.GridBoard]:
         boards = []
         for i in range(start_id - 1, num, 2):
-            print("ids:: ", i, " ", i + 1)
             boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100),ids=np.array([i, i + 1])))
         return boards
 
@@ -93,7 +93,7 @@ class TagDetectorNode(Node):
 
         idx_A, idx_C, idx_D = 0, 0, 0
         for i in range(len(tvecs)):
-            x,y = tvecs[i]
+            x,y, z = tvecs[i]
             min_x = min(min_x, x)
             max_x = max(max_x, x)
             min_y = min(min_y, y)
@@ -147,12 +147,25 @@ class TagDetectorNode(Node):
                             [0, -1, 0]])
         self._img = cv2.filter2D(self._img, -1, kernel, borderType=cv2.BORDER_CONSTANT)
 
-    def pub_robot_pose(self, robot_pose: Pose):
+    def pub_robot_pose(self, tvec, rvec):
         
-        msg = PoseWithCovariance()
+        msg = PoseWithCovarianceStamped()
+        msg.header.frame_id = 'map'
+        msg.header.stamp = self.get_clock().now().to_msg()
         
-        msg.pose = robot_pose
-        msg.covariance = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        msg.pose.pose.position.x = tvec[0]
+        msg.pose.pose.position.y = tvec[1]
+        msg.pose.pose.position.z = tvec[2]
+
+        euler_list = Rotation.from_quat([robot_pose.orientation.x, robot_pose.orientation.y, robot_pose.orientation.z, robot_pose.orientation.w]).as_euler('xyz')
+        quat_list = Rotation.from_euler('xyz', [0., 0., euler_list[2]]).as_quat()
+
+        msg.pose.pose.orientation.x = quat_list[0]
+        msg.pose.pose.orientation.y = quat_list[1]
+        msg.pose.pose.orientation.z = quat_list[2]
+        msg.pose.pose.orientation.w = quat_list[3]
+
+        msg.pose.covariance = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -167,6 +180,7 @@ class TagDetectorNode(Node):
         rvecs = []
         tag_ids = []
         current_time_msg = self.get_clock().now().to_msg()
+        frame = self._img
 
         tag_poses = TagPoseArray()
         tag_poses.poses._header._stamp = current_time_msg
@@ -198,10 +212,16 @@ class TagDetectorNode(Node):
                     if(obj_pts is not None and img_pts is not None):
                         retval, rvec, tvec = cv2.solvePnP(obj_pts, img_pts, self._mtx, self._dst)
                         if (retval > 0):
-                            frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
-                            tvecs.append(np.squeeze(tvec))
-                            rvecs.append(np.squeeze(rvec))
-                            tag_ids.append(int(np.squeeze(board_ids[0])))
+                            # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
+                            # filter expects measurments to be in camera's frame
+                            ## temporarily set to 1 and 2 until new tags are printed 
+                            if board_ids[0] == 1 or board_ids[1] == 2:
+                                self.pub_robot_pose(tvec, rvec)
+                            else:
+                                frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
+                                tvecs.append(np.squeeze(tvec))
+                                rvecs.append(np.squeeze(rvec))
+                                tag_ids.append(int(np.squeeze(board_ids[0])))
 
         if (not self._has_transform and (len(tvecs) >= 3)):
             #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
@@ -260,48 +280,43 @@ class TagDetectorNode(Node):
                     z = quat_list[2],
                     w = quat_list[3]
                 )
+                    
+                tag_poses.poses.poses.append(tag_pose)
+
+                # T_(map->tag)
+                map_to_tag_tvec = np.array([
+                        tag_pose.position.x,
+                        tag_pose.position.y,
+                        tag_pose.position.z,
+                ])
+                    
+                map_to_tag_quat = quaternion_multiply(
+                    np.array([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]),
+                    (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
+                )
                 
-                # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
-                if tag_ids[i] == 0 or tag_ids[i] == 1:
-                    self.pub_robot_pose(tag_pose)
-                else:
-                        
-                    tag_poses.poses.poses.append(tag_pose)
-
-                    # T_(map->tag)
-                    map_to_tag_tvec = np.array([
-                            tag_pose.position.x,
-                            tag_pose.position.y,
-                            tag_pose.position.z,
-                    ])
-                        
-                    map_to_tag_quat = quaternion_multiply(
-                        np.array([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]),
-                        (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
+                map_to_tag_tf = TransformStamped()
+                map_to_tag_tf._header._stamp = current_time_msg
+                map_to_tag_tf._header._frame_id = "map"
+                map_to_tag_tf._child_frame_id = "tag_{}".format(tag_ids[i])
+                
+                map_to_tag_tf.transform.translation = Vector3(
+                        x=float(map_to_tag_tvec[0]),
+                        y=float(map_to_tag_tvec[1]),
+                        z=float(map_to_tag_tvec[2])
                     )
-                    
-                    map_to_tag_tf = TransformStamped()
-                    map_to_tag_tf._header._stamp = current_time_msg
-                    map_to_tag_tf._header._frame_id = "map"
-                    map_to_tag_tf._child_frame_id = "tag_{}".format(tag_ids[i])
-                    
-                    map_to_tag_tf.transform.translation = Vector3(
-                            x=float(map_to_tag_tvec[0]),
-                            y=float(map_to_tag_tvec[1]),
-                            z=float(map_to_tag_tvec[2])
-                        )
-                    
-                    map_to_tag_tf.transform.rotation = Quaternion(
-                            x=float(map_to_tag_quat[0]),
-                            y=float(map_to_tag_quat[1]),
-                            z=float(map_to_tag_quat[2]),
-                            w=float(map_to_tag_quat[3])
-                    )
-                    
-                    self._camera_to_tag_tf_broadcaster.sendTransform(map_to_tag_tf)
+                
+                map_to_tag_tf.transform.rotation = Quaternion(
+                        x=float(map_to_tag_quat[0]),
+                        y=float(map_to_tag_quat[1]),
+                        z=float(map_to_tag_quat[2]),
+                        w=float(map_to_tag_quat[3])
+                )
+                
+                self._camera_to_tag_tf_broadcaster.sendTransform(map_to_tag_tf)
 
-                    tag_poses.ids = tag_ids
-                    self._tag_poses_pub.publish(tag_poses)
+                tag_poses.ids = tag_ids
+                self._tag_poses_pub.publish(tag_poses)
         cv2.imshow("test", frame)
         cv2.waitKey(1)
     
