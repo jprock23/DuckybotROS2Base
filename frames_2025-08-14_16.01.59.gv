@@ -1,0 +1,16 @@
+digraph G {
+"ceil_camera" -> "map"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"base_link" -> "chassis"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"chassis" -> "camera"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"chassis" -> "computer"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"chassis" -> "aarrgrpi/left_wheel_axis"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"chassis" -> "aarrgrpi/right_wheel_axis"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"map" -> "tag_4"[label=" Broadcaster: default_authority\nAverage rate: 4.21\nBuffer length: 4.751\nMost recent transform: 1755205319.123643\nOldest transform: 1755205314.372526\n"];
+"map" -> "tag_6"[label=" Broadcaster: default_authority\nAverage rate: 4.21\nBuffer length: 4.751\nMost recent transform: 1755205319.123643\nOldest transform: 1755205314.372526\n"];
+"map" -> "tag_8"[label=" Broadcaster: default_authority\nAverage rate: 4.21\nBuffer length: 4.751\nMost recent transform: 1755205319.123643\nOldest transform: 1755205314.372526\n"];
+"map" -> "tag_12"[label=" Broadcaster: default_authority\nAverage rate: 4.21\nBuffer length: 4.751\nMost recent transform: 1755205319.123643\nOldest transform: 1755205314.372526\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1755205319.3343112"[ shape=plaintext ] ;
+}->"base_link";
+}

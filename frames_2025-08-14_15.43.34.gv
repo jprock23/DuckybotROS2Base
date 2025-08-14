@@ -1,0 +1,11 @@
+digraph G {
+"map" -> "tag_4"[label=" Broadcaster: default_authority\nAverage rate: 4.201\nBuffer length: 4.998\nMost recent transform: 1755204214.122556\nOldest transform: 1755204209.124266\n"];
+"ceil_camera" -> "map"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"map" -> "tag_6"[label=" Broadcaster: default_authority\nAverage rate: 4.201\nBuffer length: 4.998\nMost recent transform: 1755204214.122556\nOldest transform: 1755204209.124266\n"];
+"map" -> "tag_8"[label=" Broadcaster: default_authority\nAverage rate: 4.212\nBuffer length: 4.748\nMost recent transform: 1755204213.872682\nOldest transform: 1755204209.124266\n"];
+"map" -> "tag_12"[label=" Broadcaster: default_authority\nAverage rate: 4.212\nBuffer length: 4.748\nMost recent transform: 1755204213.872682\nOldest transform: 1755204209.124266\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1755204214.1491847"[ shape=plaintext ] ;
+}->"ceil_camera";
+}
