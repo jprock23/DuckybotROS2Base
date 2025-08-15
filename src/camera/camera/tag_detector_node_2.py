@@ -153,12 +153,12 @@ class TagDetectorNode(Node):
         rmtx_as_euler= Rotation.from_matrix(rmtx).as_euler('xyz')
 
         msg = PoseWithCovarianceStamped()
-        msg.header.frame_id = 'map'
+        msg.header.frame_id = 'ceil_camera'
         msg.header.stamp = self.get_clock().now().to_msg()
         
         msg.pose.pose.position.x = float(tvec[0])
         msg.pose.pose.position.y = float(tvec[1])
-        msg.pose.pose.position.z = 0.
+        msg.pose.pose.position.z = float(tvec[2])
 
         quat_list = Rotation.from_euler('xyz', [0, 0, rmtx_as_euler[2]]).as_quat()
 
@@ -167,12 +167,12 @@ class TagDetectorNode(Node):
         msg.pose.pose.orientation.z = quat_list[2]
         msg.pose.pose.orientation.w = quat_list[3]
 
-        msg.pose.covariance = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=float)
+        msg.pose.covariance = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=float)
 
         map_to_robot_quat = quaternion_multiply(
                 np.array([quat_list[0], quat_list[1], quat_list[2], quat_list[3]]),
@@ -220,11 +220,14 @@ class TagDetectorNode(Node):
                 for (markerCorners, markerID) in zip(corners, ids):
                     if markerID in board.getIds():
                         # stores the ids for the board in [even_id, odd_id] order
-                        if markerID%2 == 0:
-                            board_ids.insert(0, markerID)
-                        else:
-                            board_ids.insert(1, markerID)
+                        board_ids.append(markerID)
                         board_corners.append(markerCorners)
+                        # if markerID%2 == 0:
+                        #     board_ids.insert(0, markerID)
+                        #     board_corners.append(markerCorners)
+                        # else:
+                        #     board_ids.insert(1, markerID)
+                        #     board_corners.append(markerCorners)
                     if len(board_ids) == 2:
                         break
 
@@ -240,13 +243,13 @@ class TagDetectorNode(Node):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
                             ## temporarily set to 1 and 2 until new tags are printed 
-                            if board_ids[0] == 2:
-                                self.pub_robot_pose(tvec, rvec)
-                            else:
-                                frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
-                                tvecs.append(np.squeeze(tvec))
-                                rvecs.append(np.squeeze(rvec))
-                                tag_ids.append(int(np.squeeze(board_ids[0])))
+                            # if board_ids[0] == 2:
+                            #     self.pub_robot_pose(tvec, rvec)
+                            # else:
+                            frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
+                            tvecs.append(np.squeeze(tvec))
+                            rvecs.append(np.squeeze(rvec))
+                            tag_ids.append(int(np.squeeze(board_ids[0])))
 
         if (not self._has_transform and (len(tvecs) >= 3)):
             #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
