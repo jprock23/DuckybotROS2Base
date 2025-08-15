@@ -63,6 +63,20 @@ class TagDetectorNode(Node):
         # subscriber
         self._subscriber = self.create_subscription(CompressedImage, "/camera/image_raw/compressed", self.img_processing, 10)
 
+        # init_pose = PoseWithCovarianceStamped()
+        # init_pose.pose.pose.position.x = 3.0
+        # init_pose.pose.pose.position.y = 2.0
+        # init_pose.pose.pose.position.z = 0.0
+
+        # init_pose.pose.pose.orientation.x = 0.0
+        # init_pose.pose.pose.orientation.y = 0.0
+        # init_pose.pose.pose.orientation.z = 0.0
+        # init_pose.pose.pose.orientation.w = 1.0
+
+        # init_pose.header.stamp = self.get_clock().now().to_msg()
+        # init_pose.header.frame_id = 'ceil_camera'
+        # self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10).publish(init_pose)
+
         # broadcasters
         self._camera_to_map_tf_broadcaster = StaticTransformBroadcaster(self)
         self._has_transform = False
@@ -217,17 +231,10 @@ class TagDetectorNode(Node):
                 board_ids = []
                 board_corners = []
                 # makes sure that the solvePNP for each board is only done using the tags on that board
-                for (markerCorners, markerID) in zip(corners, ids):
+                for (markerCorner, markerID) in zip(corners, ids):
                     if markerID in board.getIds():
-                        # stores the ids for the board in [even_id, odd_id] order
                         board_ids.append(markerID)
-                        board_corners.append(markerCorners)
-                        # if markerID%2 == 0:
-                        #     board_ids.insert(0, markerID)
-                        #     board_corners.append(markerCorners)
-                        # else:
-                        #     board_ids.insert(1, markerID)
-                        #     board_corners.append(markerCorners)
+                        board_corners.append(markerCorner)
                     if len(board_ids) == 2:
                         break
 
@@ -243,13 +250,13 @@ class TagDetectorNode(Node):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
                             ## temporarily set to 1 and 2 until new tags are printed 
-                            # if board_ids[0] == 2:
-                            #     self.pub_robot_pose(tvec, rvec)
-                            # else:
-                            frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
-                            tvecs.append(np.squeeze(tvec))
-                            rvecs.append(np.squeeze(rvec))
-                            tag_ids.append(int(np.squeeze(board_ids[0])))
+                            if 2 in board_ids:
+                                self.pub_robot_pose(tvec, rvec)
+                            else:
+                                frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
+                                tvecs.append(np.squeeze(tvec))
+                                rvecs.append(np.squeeze(rvec))
+                                tag_ids.append(int(np.squeeze(board_ids[0])))
 
         if (not self._has_transform and (len(tvecs) >= 3)):
             #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
