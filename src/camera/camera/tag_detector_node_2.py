@@ -63,20 +63,6 @@ class TagDetectorNode(Node):
         # subscriber
         self._subscriber = self.create_subscription(CompressedImage, "/camera/image_raw/compressed", self.img_processing, 10)
 
-        # init_pose = PoseWithCovarianceStamped()
-        # init_pose.pose.pose.position.x = 3.0
-        # init_pose.pose.pose.position.y = 2.0
-        # init_pose.pose.pose.position.z = 0.0
-
-        # init_pose.pose.pose.orientation.x = 0.0
-        # init_pose.pose.pose.orientation.y = 0.0
-        # init_pose.pose.pose.orientation.z = 0.0
-        # init_pose.pose.pose.orientation.w = 1.0
-
-        # init_pose.header.stamp = self.get_clock().now().to_msg()
-        # init_pose.header.frame_id = 'ceil_camera'
-        # self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10).publish(init_pose)
-
         # broadcasters
         self._camera_to_map_tf_broadcaster = StaticTransformBroadcaster(self)
         self._has_transform = False
@@ -181,12 +167,12 @@ class TagDetectorNode(Node):
         msg.pose.pose.orientation.z = quat_list[2]
         msg.pose.pose.orientation.w = quat_list[3]
 
-        msg.pose.covariance = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=float)
+        msg.pose.covariance = np.array([.5**2, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, .5**2, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, 0.0, 0, 0.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0, 0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 4*pi**2], dtype=float)
 
         map_to_robot_quat = quaternion_multiply(
                 np.array([quat_list[0], quat_list[1], quat_list[2], quat_list[3]]),
