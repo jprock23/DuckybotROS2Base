@@ -79,11 +79,13 @@ class TagDetectorNode(Node):
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, self)
 
+
     def generate_boards(self, num, seperation, start_id) -> list[cv2.aruco.GridBoard]:
         boards = []
         for i in range(start_id - 1, num, 2):
             boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100),ids=np.array([i, i + 1])))
         return boards
+
 
     def make_transform(self, tvecs):
         self._box_width = 0.155
@@ -126,7 +128,7 @@ class TagDetectorNode(Node):
         tf_msg._header._frame_id = "ceil_camera"
         tf_msg._child_frame_id = "map"
         # define the map origin to be at the bottom right corner
-        tf_msg._transform._translation._x = corners[0][0] - (self._box_height)
+        tf_msg._transform._translation._x = corners[0][0]
         tf_msg._transform._translation._y = corners[0][1] + (self._box_width)
         tf_msg._transform._translation._z = corners[0][2]
         tf_msg._transform._rotation._x = qx
@@ -135,6 +137,7 @@ class TagDetectorNode(Node):
         tf_msg._transform._rotation._w = qw
         self._camera_to_map_tf_broadcaster.sendTransform(tf_msg)
         self._has_transform = True
+
 
     def img_processing(self, msg: CompressedImage):
         #stores published images and processes them for marker detection and pose estiamtion
@@ -147,6 +150,7 @@ class TagDetectorNode(Node):
                             [-1, 5,-1],
                             [0, -1, 0]])
         self._img = cv2.filter2D(self._img, -1, kernel, borderType=cv2.BORDER_CONSTANT)
+
 
     def pub_robot_pose(self, tvec, rvec):
         rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
@@ -167,16 +171,16 @@ class TagDetectorNode(Node):
         msg.pose.pose.orientation.z = quat_list[2]
         msg.pose.pose.orientation.w = quat_list[3]
 
-        msg.pose.covariance = np.array([.5**2, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                        0.0, .5**2, 0.0, 0.0, 0.0, 0.0,
+        msg.pose.covariance = np.array([0.05, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                        0.0, 0.05, 0.0, 0.0, 0.0, 0.0,
                                         0.0, 0.0, 0, 0.0, 0.0, 0.0,
                                         0.0, 0.0, 0.0, 0, 0.0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0, 0.0,
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 4*pi**2], dtype=float)
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.12], dtype=float)
 
         map_to_robot_quat = quaternion_multiply(
                 np.array([quat_list[0], quat_list[1], quat_list[2], quat_list[3]]),
-                (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
+                (Rotation.from_quat([0,1,0,0]).inv()).as_quat()
             )
 
         tf_msg = TransformStamped()
@@ -236,7 +240,7 @@ class TagDetectorNode(Node):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
                             ## temporarily set to 1 and 2 until new tags are printed 
-                            if 2 in board_ids:
+                            if (2 in board_ids) or (1 in board_ids):
                                 self.pub_robot_pose(tvec, rvec)
                             else:
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
@@ -311,11 +315,19 @@ class TagDetectorNode(Node):
                         tag_pose.position.z,
                 ])
                     
+                # map_to_tag_quat = quaternion_multiply(
+                #     np.array([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]),
+                #     (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
+                # )
+                
+                euler_temp = Rotation.from_quat([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]).as_euler('xyx')
+                quat_temp = Rotation.from_euler('xyz', [0, 0, euler_temp[2]]).as_quat()
+
                 map_to_tag_quat = quaternion_multiply(
-                    np.array([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]),
+                    quat_temp,
                     (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
                 )
-                
+
                 map_to_tag_tf = TransformStamped()
                 map_to_tag_tf._header._stamp = current_time_msg
                 map_to_tag_tf._header._frame_id = "map"
