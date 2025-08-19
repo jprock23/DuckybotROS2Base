@@ -34,6 +34,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetImage.srv"
   "msg/TagPoseStamped.msg"
   "msg/TagPoseArray.msg"
+  "msg/Throttle.msg"
   DEPENDENCIES std_msgs sensor_msgs geometry_msgs
 )
 
