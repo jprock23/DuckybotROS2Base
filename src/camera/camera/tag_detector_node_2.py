@@ -177,10 +177,10 @@ class TagDetectorNode(Node):
                                         0.0, 0.0, 0.0, 0, 0.0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0.0, 0.12], dtype=float)
-
+        
         map_to_robot_quat = quaternion_multiply(
                 np.array([quat_list[0], quat_list[1], quat_list[2], quat_list[3]]),
-                (Rotation.from_quat([0,1,0,0]).inv()).as_quat()
+                (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
             )
 
         tf_msg = TransformStamped()

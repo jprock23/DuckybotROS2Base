@@ -22,8 +22,8 @@ class Map_Generator_Node(Node):
         super().__init__(node_name)
         ##ASSUMES TAGS ARE IN UPPER RIGHT CORNER OF BOX WITH THE TOP BEING THE SHORTEST SIDE
         #constants
-        self._map_height = 1.9
-        self._map_width = 1.9
+        self._map_height = 1.82
+        self._map_width = 1.82
         self._resolution = 0.01
         self._n_grid_rows = self.normalize(self._map_height)
         self._n_grid_cols = self.normalize(self._map_width)
