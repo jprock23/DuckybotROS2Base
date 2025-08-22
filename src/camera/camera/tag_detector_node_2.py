@@ -156,213 +156,118 @@ class TagDetectorNode(Node):
 
 
     def pub_robot_pose(self, tvec, rvec):
-        camera_to_tag_tf = None
-        try:
-            camera_to_tag_tf: Transform = self._tf_buffer.lookup_transform(
-                "tag_2",
-                "ceil_camera",
-                rclpy.time.Time()).transform
-        except:
-            pass
-
-        if (not camera_to_tag_tf is None):
-            r_orig = Rotation.from_quat(np.array([
-                    camera_to_tag_tf.rotation._x,
-                    camera_to_tag_tf.rotation._y,
-                    camera_to_tag_tf.rotation._z,
-                    camera_to_tag_tf.rotation._w,
-             ])).as_matrix()
-            t_orig = np.array([
-                camera_to_tag_tf._translation._x,
-                camera_to_tag_tf._translation._y,
-                camera_to_tag_tf._translation._z
-            ])
-            mtx_orig = np.eye(4)
-            mtx_orig[:3, :3] = r_orig
-            mtx_orig[:3, 3] = t_orig
-
-            r_mtx = np.eye(4)
-            r_mtx[:3, :3] = Rotation.from_euler("xyz", [0.0, 0.0, math.pi / 2.0], False).as_matrix()
-
-            print(mtx_orig)
-            print(r_mtx)
-
-            output_mtx = np.matmul(mtx_orig, r_mtx)
-
-            out_t = output_mtx[:3, 3]
-            out_quat = Rotation.from_matrix(output_mtx[:3, :3]).as_quat()
-
-            tf_msg = TransformStamped()
-            tf_msg.header.stamp = self.get_clock().now().to_msg()
-            tf_msg.header.frame_id = "ceil_camera"
-            tf_msg.child_frame_id = "base_link"
-
-
-            tf_msg.transform.translation._x = float(out_t[0])
-            tf_msg.transform.translation._y = float(out_t[1])
-            tf_msg.transform.translation._z = float(out_t[2])
-            tf_msg.transform.rotation._x = out_quat[0]
-            tf_msg.transform.rotation._y = out_quat[1]
-            tf_msg.transform.rotation._z = out_quat[2]
-            tf_msg.transform.rotation._w = out_quat[3]
-
-            self.camera_to_robot_broadcaster.sendTransform(tf_msg)
-           
-
-            # rx, ry, rz, rw = quaternion_multiply(
-            #     Rotation.from_euler("xyz", [0.0, 0.0, math.pi / 2.0], False).as_quat(),
-            #     np.array([
-            #         camera_to_tag_tf.rotation._x,
-            #         camera_to_tag_tf.rotation._y,
-            #         camera_to_tag_tf.rotation._z,
-            #         camera_to_tag_tf.rotation._w,
-            #     ])
-            # )
-
-            # camera_to_tag_mtx = np.eye(N=4)
-            # camera_to_tag_mtx[:3, :3] = Rotation.from_quat(
-            #     [
-            #         rx,
-            #         ry,
-            #         rz,
-            #         rw
-            #     ]
-            # ).as_matrix()
-            
-            # camera_to_tag_mtx[:3, 3] = [
-            #     camera_to_tag_tf._translation._x,
-            #     camera_to_tag_tf._translation._y,
-            #     camera_to_tag_tf._translation._z
-            # ]
-            
-            # rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
-            # rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
-            # homogenous_pt = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point
-            # homogenous_pt[:3, 0] = np.squeeze(tvec)
-            # transformed_homogeneous_pt = np.matmul(camera_to_tag_mtx, homogenous_pt).flatten()
-            # transformed_pt = [
-            #     transformed_homogeneous_pt[0] / float(transformed_homogeneous_pt[3]),
-            #     transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
-            #     0.0
-            # ]
-            
-            # robot_pose = Pose()
-            # robot_pose.position = Point(
-            #     x = transformed_pt[0],
-            #     y = transformed_pt[1],
-            #     z = transformed_pt[2],
-            # )
-
-            # quat_list = quaternion_multiply([camera_to_tag_tf.rotation.x, camera_to_tag_tf.rotation.y, camera_to_tag_tf.rotation.z,camera_to_tag_tf.rotation.w], rmtx_as_quat)
-
-            # robot_pose.orientation = Quaternion(
-            #         x = quat_list[0],
-            #         y = quat_list[1],
-            #         z = quat_list[2],
-            #         w = quat_list[3]
-            # )
-
-            # tf_msg = TransformStamped()
-            # tf_msg.header.stamp = self.get_clock().now().to_msg()
-            # tf_msg.header.frame_id = "ceil_camera"
-            # tf_msg.child_frame_id = "base_link"
-
-
-            # tf_msg.transform.translation._x = float(robot_pose.position.x)
-            # tf_msg.transform.translation._y = float(robot_pose.position.y)
-            # tf_msg.transform.translation._z = float(robot_pose.position.z)
-            # tf_msg.transform.rotation._x = robot_pose.orientation.x
-            # tf_msg.transform.rotation._y = robot_pose.orientation.y
-            # tf_msg.transform.rotation._z = robot_pose.orientation.z
-            # tf_msg.transform.rotation._w = robot_pose.orientation.w
-
-            # tf_msg.transform.translation._x = float(camera_to_tag_tf._translation._x)
-            # tf_msg.transform.translation._y = float(camera_to_tag_tf._translation._y)
-            # tf_msg.transform.translation._z = float(camera_to_tag_tf._translation._z)
-            # tf_msg.transform.rotation._x = rx
-            # tf_msg.transform.rotation._y = ry
-            # tf_msg.transform.rotation._z = rz
-            # tf_msg.transform.rotation._w = rw
-
-
-        # camera_to_tag_mtx = np.eye(N=4)
-        # camera_to_tag_mtx[:3, :3] = Rotation.from_quat(
-        #     [
-        #         camera_to_tag_tf._rotation._x,
-        #         camera_to_tag_tf._rotation._y,
-        #         camera_to_tag_tf._rotation._z,
-        #         camera_to_tag_tf._rotation._w
-        #     ]
-        # ).as_matrix()
+        rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
+        rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
+        homogeneous_pt = np.array([[tvec[0]],
+                                   [tvec[1]],
+                                   [tvec[2]],
+                                   [1.0]])
         
-        # camera_to_tag_mtx[:3, 3] = [
-        #     camera_to_tag_tf._translation._x,
-        #     camera_to_tag_tf._translation._y,
-        #     camera_to_tag_tf._translation._z
-        # ]
-        
+        homogeneous_rtmx = np.eye(N=4)
+        homogeneous_rtmx[:3, :3] = Rotation.from_euler('xyz', [0, 0, pi/2], degrees=False).as_matrix()
 
-        # rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
-        # rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
-        # homogenous_pt = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point
-        # homogenous_pt[:3, 0] = tvec
-        # transformed_homogeneous_pt = np.matmul(camera_to_tag_mtx, homogenous_pt).flatten()
-        # transformed_pt = [
-        #     transformed_homogeneous_pt[0] / float(transformed_homogeneous_pt[3]),
-        #     transformed_homogeneous_pt[1] / float(transformed_homogeneous_pt[3]),
-        #     0.0
-        # ]
-                
-        # rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
-        # rmtx_as_quat= Rotation.from_matrix(rmtx).as_quat()
+        robot_tvec = np.matmul(homogeneous_rtmx, homogeneous_pt)
 
-        # msg = PoseWithCovarianceStamped()
-        # msg.header.frame_id = 'ceil_camera'
-        # msg.header.stamp = self.get_clock().now().to_msg()
-        
-        # msg.pose.pose.position.x = float(tvec[0])
-        # msg.pose.pose.position.y = float(tvec[1])
-        # msg.pose.pose.position.z = float(tvec[2])
+        q_r = Rotation.from_euler('xyz', [0, 0, pi/2], degrees=False).as_quat()
 
-        # euler_list = Rotation.from_quat(rmtx_as_quat).as_euler('xyz')
-        # quat_list = Rotation.from_euler('xyz', [0, 0, -euler_list[2]]).as_quat()
+        robot_rvec = quaternion_multiply(q_r, rmtx_as_quat)
 
-        # # norm_vector = np.squeeze(rvec)
-        # # norm_vector /= np.linalg.norm(norm_vector)
-        # # qx, qy, qz = np.cross(np.array([0.0, 0.0, 1.0]), norm_vector)
-        # # qw = 1.0 + np.dot(np.array([0.0, 0.0, 1.0]), norm_vector)
+        robot_pose_msg = PoseWithCovarianceStamped()
+        robot_pose_msg.header.stamp = self.get_clock().now().to_msg()
+        robot_pose_msg.header.frame_id = 'ceil_camera'
 
-        # # quat_list = np.array([qx, qy, qz, qw])
+        robot_pose_msg.pose.pose.position.x = float(robot_tvec[0])
+        robot_pose_msg.pose.pose.position.y = float(robot_tvec[1])
+        robot_pose_msg.pose.pose.position.z = float(robot_tvec[2])
 
-        # msg.pose.pose.orientation.x = quat_list[0]
-        # msg.pose.pose.orientation.y = quat_list[1]
-        # msg.pose.pose.orientation.z = quat_list[2]
-        # msg.pose.pose.orientation.w = quat_list[3]
+        robot_pose_msg.pose.pose.orientation.x = robot_rvec[0]
+        robot_pose_msg.pose.pose.orientation.y = robot_rvec[1]
+        robot_pose_msg.pose.pose.orientation.z = robot_rvec[2]
+        robot_pose_msg.pose.pose.orientation.w = robot_rvec[3]
 
-        # msg.pose.covariance = np.array([0.05, 0.0, 0.0, 0.0, 0.0, 0.0,
-        #                                 0.0, 0.05, 0.0, 0.0, 0.0, 0.0,
-        #                                 0.0, 0.0, 0, 0.0, 0.0, 0.0,
-        #                                 0.0, 0.0, 0.0, 0, 0.0, 0.0,
-        #                                 0.0, 0.0, 0.0, 0.0, 0, 0.0,
-        #                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.12], dtype=float)
-        
-        # map_to_robot_quat = quat_list
+        tf_msg = TransformStamped()
+        tf_msg.header.stamp = self.get_clock().now().to_msg()
+        tf_msg.header.frame_id = "ceil_camera"
+        tf_msg.child_frame_id = "base_link"
 
-        # tf_msg = TransformStamped()
-        # tf_msg.header.stamp = self.get_clock().now().to_msg()
-        # tf_msg.header.frame_id = "ceil_camera"
-        # tf_msg.child_frame_id = "base_link"
+        tf_msg.transform.translation._x = float(robot_tvec[0])
+        tf_msg.transform.translation._y = float(robot_tvec[1])
+        tf_msg.transform.translation._z = float(robot_tvec[2])
+        tf_msg.transform.rotation._x = robot_rvec[0]
+        tf_msg.transform.rotation._y = robot_rvec[1]
+        tf_msg.transform.rotation._z = robot_rvec[2]
+        tf_msg.transform.rotation._w = robot_rvec[3]
 
-        # tf_msg.transform.translation._x = float(tvec[0])
-        # tf_msg.transform.translation._y = float(tvec[1])
-        # tf_msg.transform.translation._z = float(tvec[2])
-        # tf_msg.transform.rotation._x = map_to_robot_quat[0]
-        # tf_msg.transform.rotation._y = map_to_robot_quat[1]
-        # tf_msg.transform.rotation._z = map_to_robot_quat[2]
-        # tf_msg.transform.rotation._w = map_to_robot_quat[3]
+        self.camera_to_robot_broadcaster.sendTransform(tf_msg)
+        self.robot_pose_pub.publish(robot_pose_msg)
+        # camera_to_tag_tf = None
+        # try:
+        #     camera_to_tag_tf: Transform = self._tf_buffer.lookup_transform(
+        #         "tag_2",
+        #         "ceil_camera",
+        #         rclpy.time.Time()).transform
+        # except:
+        #     pass
+        # if (not camera_to_tag_tf is None):
+        #     r_orig = Rotation.from_quat(np.array([
+        #             camera_to_tag_tf.rotation._x,
+        #             camera_to_tag_tf.rotation._y,
+        #             camera_to_tag_tf.rotation._z,
+        #             camera_to_tag_tf.rotation._w,
+        #      ])).as_matrix()
+        #     t_orig = np.array([
+        #         camera_to_tag_tf._translation._x,
+        #         camera_to_tag_tf._translation._y,
+        #         camera_to_tag_tf._translation._z
+        #     ])
+        #     mtx_orig = np.eye(4)
+        #     mtx_orig[:3, :3] = r_orig
+        #     mtx_orig[:3, 3] = t_orig
 
-        # self.camera_to_robot_broadcaster.sendTransform(tf_msg)
-        # self.robot_pose_pub.publish(msg)
+        #     print("original")
+        #     print(mtx_orig)
+        #     print("-----------")
+
+        #     r_mtx = np.eye(4)
+        #     r_mtx[:3, :3] = Rotation.from_euler("XYZ", [0.0, 0.0, math.pi / 2.0], False).as_matrix()
+
+        #     output_mtx = np.matmul(mtx_orig, r_mtx)
+
+        #     print("output")
+        #     print(output_mtx)
+        #     print("---------------")
+
+        #     out_t = output_mtx[:3, 3]
+        #     out_quat = Rotation.from_matrix(output_mtx[:3, :3]).as_quat()
+
+        #     tf_msg = TransformStamped()
+        #     tf_msg.header.stamp = self.get_clock().now().to_msg()
+        #     tf_msg.header.frame_id = "ceil_camera"
+        #     tf_msg.child_frame_id = "base_link"
+
+
+        #     tf_msg.transform.translation._x = float(out_t[0])
+        #     tf_msg.transform.translation._y = float(out_t[1])
+        #     tf_msg.transform.translation._z = float(out_t[2])
+        #     tf_msg.transform.rotation._x = out_quat[0]
+        #     tf_msg.transform.rotation._y = out_quat[1]
+        #     tf_msg.transform.rotation._z = out_quat[2]
+        #     tf_msg.transform.rotation._w = out_quat[3]
+
+            # pose_msg = PoseWithCovarianceStamped()
+            # pose_msg.header.stamp = self.get_clock().now().to_msg()
+            # pose_msg.header.frame_id = 'ceil_camera'
+
+            # pose_msg.pose.pose.position.x = float(out_t[0])
+            # pose_msg.pose.pose.position.y = float(out_t[1])
+            # pose_msg.pose.pose.position.z = float(out_t[2])
+            # pose_msg.pose.pose.orientation.x = out_quat[0]
+            # pose_msg.pose.pose.orientation.y = out_quat[1]
+            # pose_msg.pose.pose.orientation.z = out_quat[2]
+            # pose_msg.pose.pose.orientation.w = out_quat[3]
+
+            # self.robot_pose_pub.publish(pose_msg)
+
 
 
     def calc_tag_pose(self):
@@ -412,7 +317,7 @@ class TagDetectorNode(Node):
                                 self.pub_robot_pose(tvec, rvec)
                                 tvecs.append(np.squeeze(tvec))
                                 rvecs.append(np.squeeze(rvec))
-                                tag_ids.append(int(np.squeeze(board_ids[0])))
+                                tag_ids.append(int(np.squeeze(board_ids[1])))
                             else:
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
                                 tvecs.append(np.squeeze(tvec))
@@ -488,12 +393,7 @@ class TagDetectorNode(Node):
                 ])
                 
                 euler_temp = Rotation.from_quat([tag_pose.orientation.x, tag_pose.orientation.y, tag_pose.orientation.z, tag_pose.orientation.w]).as_euler('xyx')
-                quat_temp = Rotation.from_euler('xyz', [0, 0, euler_temp[2]]).as_quat()
-
-                map_to_tag_quat = quaternion_multiply(
-                    quat_temp,
-                    (Rotation.from_quat([0,0,0,1]).inv()).as_quat()
-                )
+                map_to_tag_quat = Rotation.from_euler('xyz', [0, 0, euler_temp[2]]).as_quat()
 
                 map_to_tag_tf = TransformStamped()
                 map_to_tag_tf._header._stamp = current_time_msg
