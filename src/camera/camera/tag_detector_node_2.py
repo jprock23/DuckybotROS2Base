@@ -155,51 +155,69 @@ class TagDetectorNode(Node):
         self._img = cv2.filter2D(self._img, -1, kernel, borderType=cv2.BORDER_CONSTANT)
 
 
-    def pub_robot_pose(self, tvec, rvec):
-        rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
-        rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
-        homogeneous_pt = np.array([[tvec[0]],
-                                   [tvec[1]],
-                                   [tvec[2]],
-                                   [1.0]])
+    def pub_robot_pose(self, tvec):
+        tag_to_camera_tf = None
+        try:
+            tag_to_camera_tf: Transform = self._tf_buffer.lookup_transform(
+                "ceil_camera",
+                "tag_1",
+                rclpy.time.Time()).transform
+        except:
+            pass
+        # rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
+        # rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
+        # homogeneous_pt = np.array([tvec[0][0],tvec[1][0],tvec[2][0],1.0])
         
-        homogeneous_rtmx = np.eye(N=4)
-        homogeneous_rtmx[:3, :3] = Rotation.from_euler('xyz', [0, 0, pi/2], degrees=False).as_matrix()
+        # homogeneous_rtmx = np.eye(N=4)
+        # homogeneous_rtmx[:3, :3] = Rotation.from_euler('xyz', [0, 0, 0], degrees=False).as_matrix()
 
-        robot_tvec = np.matmul(homogeneous_rtmx, homogeneous_pt)
+        # robot_tvec = tvec
+        # q_r = Rotation.from_euler('xyz', [0, 0, 0], degrees=False).as_quat()
 
-        q_r = Rotation.from_euler('xyz', [0, 0, pi/2], degrees=False).as_quat()
+        # robot_rvec = quaternion_multiply(q_r, rmtx_as_quat)
 
-        robot_rvec = quaternion_multiply(q_r, rmtx_as_quat)
 
-        robot_pose_msg = PoseWithCovarianceStamped()
-        robot_pose_msg.header.stamp = self.get_clock().now().to_msg()
-        robot_pose_msg.header.frame_id = 'ceil_camera'
+        if (not tag_to_camera_tf is None):
+            rmtx_as_quat = np.array([tag_to_camera_tf._rotation._x, tag_to_camera_tf._rotation._y, tag_to_camera_tf._rotation._z, tag_to_camera_tf._rotation._w])
+            tvec = np.array([tag_to_camera_tf._translation._x, tag_to_camera_tf._translation._y, tag_to_camera_tf._translation._z])
+            
+            homogeneous_rtmx = np.eye(N=4)
+            homogeneous_rtmx[:3, :3] = Rotation.from_euler('xyz', [0, 0, -pi/2], degrees=False).as_matrix()
+            q_r = Rotation.from_euler('xyz', [0, 0, -pi/2], degrees=False).as_quat()
+            # homogeneous_pt = np.array([tvec[0],tvec[1],tvec[2],1.0])
+            # robot_tvec = homogeneous_pt
+            robot_tvec = tvec
+            
+            robot_rvec = quaternion_multiply(q_r, rmtx_as_quat)
 
-        robot_pose_msg.pose.pose.position.x = float(robot_tvec[0])
-        robot_pose_msg.pose.pose.position.y = float(robot_tvec[1])
-        robot_pose_msg.pose.pose.position.z = float(robot_tvec[2])
+            robot_pose_msg = PoseWithCovarianceStamped()
+            robot_pose_msg.header.stamp = self.get_clock().now().to_msg()
+            robot_pose_msg.header.frame_id = 'ceil_camera'
 
-        robot_pose_msg.pose.pose.orientation.x = robot_rvec[0]
-        robot_pose_msg.pose.pose.orientation.y = robot_rvec[1]
-        robot_pose_msg.pose.pose.orientation.z = robot_rvec[2]
-        robot_pose_msg.pose.pose.orientation.w = robot_rvec[3]
+            robot_pose_msg.pose.pose.position.x = float(robot_tvec[0])
+            robot_pose_msg.pose.pose.position.y = float(robot_tvec[1])
+            robot_pose_msg.pose.pose.position.z = float(robot_tvec[2])
 
-        tf_msg = TransformStamped()
-        tf_msg.header.stamp = self.get_clock().now().to_msg()
-        tf_msg.header.frame_id = "ceil_camera"
-        tf_msg.child_frame_id = "base_link"
+            robot_pose_msg.pose.pose.orientation.x = robot_rvec[0]
+            robot_pose_msg.pose.pose.orientation.y = robot_rvec[1]
+            robot_pose_msg.pose.pose.orientation.z = robot_rvec[2]
+            robot_pose_msg.pose.pose.orientation.w = robot_rvec[3]
+            
+            tf_msg = TransformStamped()
+            tf_msg.header.stamp = self.get_clock().now().to_msg()
+            tf_msg.header.frame_id = "ceil_camera"
+            tf_msg.child_frame_id = "base_link"
 
-        tf_msg.transform.translation._x = float(robot_tvec[0])
-        tf_msg.transform.translation._y = float(robot_tvec[1])
-        tf_msg.transform.translation._z = float(robot_tvec[2])
-        tf_msg.transform.rotation._x = robot_rvec[0]
-        tf_msg.transform.rotation._y = robot_rvec[1]
-        tf_msg.transform.rotation._z = robot_rvec[2]
-        tf_msg.transform.rotation._w = robot_rvec[3]
+            tf_msg.transform.translation._x = float(robot_tvec[0])
+            tf_msg.transform.translation._y = float(robot_tvec[1])
+            tf_msg.transform.translation._z = float(robot_tvec[2])
+            tf_msg.transform.rotation._x = robot_rvec[0]
+            tf_msg.transform.rotation._y = robot_rvec[1]
+            tf_msg.transform.rotation._z = robot_rvec[2]
+            tf_msg.transform.rotation._w = robot_rvec[3]
 
-        self.camera_to_robot_broadcaster.sendTransform(tf_msg)
-        self.robot_pose_pub.publish(robot_pose_msg)
+            self.camera_to_robot_broadcaster.sendTransform(tf_msg)
+            self.robot_pose_pub.publish(robot_pose_msg)
         # camera_to_tag_tf = None
         # try:
         #     camera_to_tag_tf: Transform = self._tf_buffer.lookup_transform(
@@ -313,11 +331,11 @@ class TagDetectorNode(Node):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
                             ## temporarily set to 1 and 2 until new tags are printed 
-                            if (2 in board_ids) or (1 in board_ids):
-                                self.pub_robot_pose(tvec, rvec)
+                            if (1 in board_ids):
+                                self.pub_robot_pose(tvec)
                                 tvecs.append(np.squeeze(tvec))
                                 rvecs.append(np.squeeze(rvec))
-                                tag_ids.append(int(np.squeeze(board_ids[1])))
+                                tag_ids.append(int(np.squeeze(board_ids[0])))
                             else:
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
                                 tvecs.append(np.squeeze(tvec))
