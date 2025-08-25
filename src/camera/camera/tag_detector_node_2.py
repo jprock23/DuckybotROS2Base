@@ -34,7 +34,7 @@ def quaternion_multiply(q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
     return np.array([q0q1_x, q0q1_y, q0q1_z, q0q1_w])
 
 class TagDetectorNode(Node):
-    ## tags should be mounted tilted to remove orientational ambiguity from parallel projection
+    ## tags should be mounted with their top left corner in the top left corner of the box
     def __init__(self, node_name: str, calibration_file_path: str = "ost.yaml"):
         super().__init__(node_name)
         # ros params
@@ -44,6 +44,8 @@ class TagDetectorNode(Node):
         # calibration and image initialization
         # self._marker_size = 0.1397 #5.5 in
         self._marker_size = 0.1016 # 4 in
+        #self.robot_marker_size = .0508 #2 in
+        self.robot_marker_size = .0635 #2.5
         with open(calibration_file_path, "r") as yaml_file:
             data = yaml.safe_load(yaml_file)
         self._mtx = np.reshape(data["camera_matrix"]["data"], (3, 3))
@@ -53,11 +55,10 @@ class TagDetectorNode(Node):
         # cv2 detector
         params = cv2.aruco.DetectorParameters()
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-        self._detector = cv2.aruco.ArucoDetector(
+        self.detector = cv2.aruco.ArucoDetector(
             cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100), 
-            params
-        ) 
-
+            params)
+        
         self.boards = self.generate_boards(18, .028, 2)
 
         self._bridge = CvBridge()
@@ -164,18 +165,6 @@ class TagDetectorNode(Node):
                 rclpy.time.Time()).transform
         except:
             pass
-        # rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
-        # rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
-        # homogeneous_pt = np.array([tvec[0][0],tvec[1][0],tvec[2][0],1.0])
-        
-        # homogeneous_rtmx = np.eye(N=4)
-        # homogeneous_rtmx[:3, :3] = Rotation.from_euler('xyz', [0, 0, 0], degrees=False).as_matrix()
-
-        # robot_tvec = tvec
-        # q_r = Rotation.from_euler('xyz', [0, 0, 0], degrees=False).as_quat()
-
-        # robot_rvec = quaternion_multiply(q_r, rmtx_as_quat)
-
 
         if (not tag_to_camera_tf is None):
             rmtx_as_quat = np.array([tag_to_camera_tf._rotation._x, tag_to_camera_tf._rotation._y, tag_to_camera_tf._rotation._z, tag_to_camera_tf._rotation._w])
@@ -240,10 +229,10 @@ class TagDetectorNode(Node):
         poses_array._header._frame_id = "ceil_camera"
         tag_poses.poses._header._stamp = current_time_msg
         tag_poses.poses._header._frame_id = "ceil_camera"
-        (corners, ids, rejected) = self._detector.detectMarkers(self._img)
+        (corners, ids, rejected) = self.detector.detectMarkers(self._img)
     
         for board in self.boards:
-            self._detector.refineDetectedMarkers(self._img, board, corners, ids, rejected, self._mtx, self._dst)
+            self.detector.refineDetectedMarkers(self._img, board, corners, ids, rejected, self._mtx, self._dst)
             if(len(corners) > 0):
                 # cv2 visualization
                 frame = cv2.aruco.drawDetectedMarkers(self._img, corners, ids)
@@ -272,6 +261,7 @@ class TagDetectorNode(Node):
                             ## temporarily set to 1 and 2 until new tags are printed 
                             if (1 in board_ids):
                                 self.pub_robot_pose(tvec)
+                                frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self.robot_marker_size, 2)
                                 tvecs.append(np.squeeze(tvec))
                                 rvecs.append(np.squeeze(rvec))
                                 tag_ids.append(int(np.squeeze(board_ids[0])))
