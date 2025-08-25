@@ -135,7 +135,7 @@ ekf_filter_node:
 # the thresholds.
         pose0_pose_rejection_threshold: 1.0
 
-#         imu0: imu/data
+        twist0: imu/data
 #         imu0_config: [false, false, false,
 #                       true,  true,  true,
 #                       false, false, false,
@@ -198,8 +198,8 @@ ekf_filter_node:
 # to be larger, which will cause the filter to trust the incoming measurement more during correction. The values are
 # ordered as x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az. Defaults to the matrix below if
 # unspecified.
-        process_noise_covariance: [0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,  #x
-                                   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,  #y
+        process_noise_covariance: [0.05,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,  #x
+                                   0.0,    0.05,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,  #y
                                    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0, #z
                                    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0, #rroll
                                    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0, #pitch
