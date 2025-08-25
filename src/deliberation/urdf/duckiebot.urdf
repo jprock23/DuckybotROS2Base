@@ -1,0 +1,136 @@
+<?xml version='1.0'?>
+
+<robot name="duckiebot">
+  <pose>0 0 0 0 0 0</pose>
+
+  <!-- base_link -->
+  <link name='base_link'>
+    <visual name='baseLinkVisual'>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0" radius="0.0025" />
+      </geometry>
+      <material name="red" />
+    </visual>  
+  </link>
+
+  <!-- Chassis -->
+  <link name='chassis'>
+    <collision name='collision'>
+      <origin xyz="0 0 0" rpy=" 0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebotFrame.dae"/>
+      </geometry>
+    </collision>
+    <visual name='chassis_visual'>
+      <origin xyz="0 0 0" rpy=" 0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebotFrame.dae"/>
+      </geometry>
+      <material name="red" />
+    </visual>
+  </link>
+  <joint type="fixed" name="base2Chassis">
+    <child link="chassis" />
+    <parent link="base_link" />
+    <origin xyz="0 0 0.0325" />
+  </joint>
+
+  <!-- left_wheel -->
+  <link name="aarrgrpi/left_wheel_axis">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <collision name="collision">
+      <origin xyz="0 -0.07 0" rpy="0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_leftwheel.dae"/>
+      </geometry>
+    </collision>
+    <visual name="left_wheel_visual">
+      <origin xyz="0 -0.07 0" rpy="0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_leftwheel.dae"/>      
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+  <joint type="fixed" name="left_wheel_hinge">
+    <origin xyz="0.0 0.07 0" rpy="0 0 0"/>
+    <child link="aarrgrpi/left_wheel_axis"/>
+    <parent link="chassis"/>
+    <axis xyz="0 1 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- right_wheel -->
+  <link name="aarrgrpi/right_wheel_axis">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <collision name="collision">
+      <origin xyz="0 0.07 0" rpy="0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_rightwheel.dae"/> 
+      </geometry>
+    </collision>
+    <visual name="right_wheel_visual">
+      <origin xyz="0 0.07 0" rpy="0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_rightwheel.dae"/> 
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+  <joint type="fixed" name="right_wheel_hinge">
+    <origin xyz="0.0 -0.07 0" rpy="0 0 0"/>
+    <child link="aarrgrpi/right_wheel_axis"/>
+    <parent link="chassis"/>
+    <axis xyz="0 1 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Computer -->
+  <link name="computer">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_computer.dae"/>
+      </geometry>
+    </collision>
+    <visual name='comp_visual'>
+      <origin xyz="0 0 0" rpy=" 0 0 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_computer.dae"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+  </link>
+  <joint name="computer_joint" type="fixed">
+    <axis xyz="0 0 0" />
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="chassis"/>
+    <child link="computer"/>
+  </joint>
+
+  <!-- Camera sensor -->
+  <link name="camera">
+    <pose>0 0 0 0 0 0</pose>
+    <collision>
+      <origin xyz="-0.05 0 -0.055" rpy="0 -0.1 0"/>
+      <geometry>
+        <mesh filename="package://deliberation/urdf/duckiebot_camera.dae"/>
+      </geometry>
+    </collision>
+    <visual name='camvisual'>
+      <origin xyz="-0.05 0 -0.055" rpy=" 0 -0.1 0"/>
+      <geometry>
+	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_camera.dae"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+
+  <!-- This joint info decides the pos of camera. Pitch(p in rpy) is angle to control orientation for duckiebot camera.After change values here, you need to change the pos info in collision part anf visual part just above.-->
+  <joint name="camera_joint" type="fixed">
+    <axis xyz="0 0 0" />
+    <origin xyz="0.05 0 0.05" rpy="0 0.1 0"/> 
+    <parent link="chassis"/>
+    <child link="camera"/>
+  </joint>
+
+</robot>
