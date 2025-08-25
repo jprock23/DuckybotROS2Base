@@ -1,17 +1,17 @@
 import math
 from cv2 import normalize
 import rclpy
-from geometry_msgs.msg import Point, Pose, Transform, TransformStamped, Vector3, PoseArray
+from geometry_msgs.msg import Point, Transform, Vector3
 import numpy as np
 from builtin_interfaces.msg import Duration
-from math import floor, pi, sqrt
+from math import floor
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 from std_msgs.msg import ColorRGBA, Header
 from map_msgs.msg import OccupancyGridUpdate
-from tf2_ros import Buffer, TransformListener, StaticTransformBroadcaster
+from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
 from interfaces.msg import TagPoseArray

@@ -19,13 +19,13 @@
     <collision name='collision'>
       <origin xyz="0 0 0" rpy=" 0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebotFrame.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebotFrame.dae"/>
       </geometry>
     </collision>
     <visual name='chassis_visual'>
       <origin xyz="0 0 0" rpy=" 0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebotFrame.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebotFrame.dae"/>
       </geometry>
       <material name="red" />
     </visual>
@@ -42,13 +42,13 @@
     <collision name="collision">
       <origin xyz="0 -0.07 0" rpy="0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_leftwheel.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebot_leftwheel.dae"/>
       </geometry>
     </collision>
     <visual name="left_wheel_visual">
       <origin xyz="0 -0.07 0" rpy="0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_leftwheel.dae"/>      
+	      <mesh filename="package://deliberation/urdf/duckiebot_leftwheel.dae"/>      
       </geometry>
       <material name="black"/>
     </visual>
@@ -66,13 +66,13 @@
     <collision name="collision">
       <origin xyz="0 0.07 0" rpy="0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_rightwheel.dae"/> 
+	      <mesh filename="package://deliberation/urdf/duckiebot_rightwheel.dae"/> 
       </geometry>
     </collision>
     <visual name="right_wheel_visual">
       <origin xyz="0 0.07 0" rpy="0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_rightwheel.dae"/> 
+	      <mesh filename="package://deliberation/urdf/duckiebot_rightwheel.dae"/> 
       </geometry>
       <material name="black"/>
     </visual>
@@ -89,13 +89,13 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_computer.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebot_computer.dae"/>
       </geometry>
     </collision>
     <visual name='comp_visual'>
       <origin xyz="0 0 0" rpy=" 0 0 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_computer.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebot_computer.dae"/>
       </geometry>
       <material name="blue"/>
     </visual>
@@ -119,7 +119,7 @@
     <visual name='camvisual'>
       <origin xyz="-0.05 0 -0.055" rpy=" 0 -0.1 0"/>
       <geometry>
-	      <mesh filename="file:/home/jproque/dbros2_ws/src/deliberation/urdf/duckiebot_camera.dae"/>
+	      <mesh filename="package://deliberation/urdf/duckiebot_camera.dae"/>
       </geometry>
       <material name="black"/>
     </visual>

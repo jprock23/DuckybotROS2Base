@@ -1,7 +1,6 @@
 import math
 from tracemalloc import start
 from turtle import pos
-from urllib.robotparser import RobotFileParser
 import cv2
 import numpy as np
 from sympy import euler, false
@@ -16,9 +15,8 @@ from scipy.spatial.transform import Rotation
 from sensor_msgs.msg import CompressedImage
 
 from geometry_msgs.msg import Point, Pose, Quaternion, Transform, TransformStamped, Vector3, PoseWithCovarianceStamped, PoseArray
-from std_msgs.msg import ColorRGBA
 from tf2_ros import Buffer, TransformListener, TransformBroadcaster, StaticTransformBroadcaster
-from visualization_msgs.msg import Marker, MarkerArray
+from visualization_msgs.msg import MarkerArray
 
 from interfaces.msg import TagPoseArray
 
@@ -258,8 +256,7 @@ class TagDetectorNode(Node):
                         if (retval > 0):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
-                            ## temporarily set to 1 and 2 until new tags are printed 
-                            if (1 in board_ids):
+                            if (1 in board_ids) or (2 in board_ids):
                                 self.pub_robot_pose(tvec)
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self.robot_marker_size, 2)
                                 tvecs.append(np.squeeze(tvec))

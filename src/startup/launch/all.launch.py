@@ -9,6 +9,7 @@ def generate_launch_description()->LaunchDescription:
     localizer_launch_dir = PathJoinSubstitution([FindPackageShare('localizer'), 'launch'])
     camera_launch_dir = PathJoinSubstitution([FindPackageShare('camera'), 'launch'])
     state_publisher_launch_dir = PathJoinSubstitution([FindPackageShare('deliberation'), 'launch'])
+    tag_detector_launch_dir = PathJoinSubstitution([FindPackageShare('camera'), 'launch'])
     
     map_node = Node(
         package='map_node',
@@ -29,6 +30,9 @@ def generate_launch_description()->LaunchDescription:
         ),
         IncludeLaunchDescription(
             PathJoinSubstitution([camera_launch_dir, "camera.launch.py"])
+        ),
+        IncludeLaunchDescription(
+            PathJoinSubstitution([camera_launch_dir, "detector.launch.py"])
         ),
         map_node,
         controller_node
