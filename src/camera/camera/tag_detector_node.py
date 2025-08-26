@@ -40,10 +40,8 @@ class TagDetectorNode(Node):
         self.declare_parameter("flip", True, descriptor=description)
 
         # calibration and image initialization
-        # self._marker_size = 0.1397 #5.5 in
         self._marker_size = 0.1016 # 4 in
-        #self.robot_marker_size = .0508 #2 in
-        self.robot_marker_size = .0635 #2.5
+        self.robot_marker_size = 1016 #4
         with open(calibration_file_path, "r") as yaml_file:
             data = yaml.safe_load(yaml_file)
         self._mtx = np.reshape(data["camera_matrix"]["data"], (3, 3))
@@ -256,7 +254,7 @@ class TagDetectorNode(Node):
                         if (retval > 0):
                             # the board with tag 0 and 1 is on the robot and should be handled differently than the rest
                             # filter expects measurments to be in camera's frame
-                            if (1 in board_ids) or (2 in board_ids):
+                            if (1 in board_ids) or (0 in board_ids):
                                 self.pub_robot_pose(tvec)
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self.robot_marker_size, 2)
                                 tvecs.append(np.squeeze(tvec))
