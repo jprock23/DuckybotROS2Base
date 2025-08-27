@@ -20,7 +20,8 @@ class Controller_Node(Node):
         self.angular_controller = PID(kP_angular, kI_angular, kD_angular)
         
         #Subscribers
-        self.cmd_subscription = self.create_subscription(WheelsCmdStamped, '/wheels_cmd', self.set_setpoint, 10)
+        self.cmd_subscription = self.create_subscription(WheelsCmdStamped, '/wheels_cmd', self.set_linear_setpoint, 10)
+        self.angular_cmd_subscription = self.create_subscription(TwistStamped, '/angular_cmd', )
         self.velocity_left_subscription = self.create_subscription(TwistStamped, '/left_encoder_node/velocity', self.update_left_vel, 10)
         self.velocity_right_subscription = self.create_subscription(TwistStamped, '/right_encoder_node/velocity', self.update_right_vel, 10)
 
@@ -30,20 +31,26 @@ class Controller_Node(Node):
         self.twist_publisher = self.create_publisher(TwistStamped, '/robot_twist', 10)
 
         self.wheel_radius = .0325
-        self.wheel_base = 0.14
+        self.track_width = 0.14
 
         self.prev_Lticks = None
         self.prev_Rticks = None
 
         self.curr_velL = 0.0
         self.curr_velR = 0.0
+        self.angular_vel = 0.0
+        self.linear_vel = 0.0
+        
+        self.max_linear_vel = 0.25
+        self.max_angular_vel = 0.25
 
         self.left_throttle = 0.0
         self.right_throttle = 0.0
 
-        self.time_period = 1/30.0
-        self.control_timer = self.create_timer(self.time_period, self.calculate_control)
-        self.twist_timer = self.create_timer(self.time_period, self.calculate_twist)
+        self.timer_period = 1/30.0
+        self.twist_timer = self.create_timer(self.timer_period, self.calculate_twist)
+        self.linear_control_timer = self.create_timer(self.timer_period, self.calcuate_linear_control)
+        self.angular_control_timer = self.create_timer(self.timer_period, self.calculate_angular_control)
 
 
     def update_left_vel(self, msg: TwistStamped):
@@ -59,13 +66,23 @@ class Controller_Node(Node):
         twist_msg.header.stamp = self.get_clock().now().to_msg()
         twist_msg.header.frame_id = 'base_link'
         
-        twist_msg.twist.linear.x = (self.curr_velL + self.curr_velR)/2.0
-        twist_msg.twist.angular.z = (self.curr_velR - self.curr_velL)/self.wheel_base
+        self.angular_vel = (self.curr_velR - self.curr_velL)/self.track_width
+        self.linear_vel = (self.curr_velL + self.curr_velR)/2.0
+        
+        twist_msg.twist.linear.x = self.linear_vel
+        twist_msg.twist.angular.z = self.angular_vel
         
         self.twist_publisher.publish(twist_msg)
 
 
-    def calculate_control(self):
+    def calculate_angular_control(self):
+        control = self.angular_controller(self.angular_vel)
+        
+        self.left_linear_controller.setpoint = max(-self.max_linear_vel, min(self.linear_vel - control *(self.track_width/2), self.max_linear_vel))
+        self.right_linear_controller.setpoint = max(-self.max_linear_vel, min(self.linear_vel + control *(self.track_width/2), self.max_linear_vel))
+        
+
+    def calcuate_linear_control(self):
         self.left_throttle = self.left_linear_controller(self.curr_velL)
         self.right_throttle = self.right_linear_controller(self.curr_velR)
 
@@ -85,15 +102,21 @@ class Controller_Node(Node):
         self.executed_cmd_publisher.publish(executed_msg)
 
         
-    def set_setpoint(self, msg: WheelsCmdStamped):
+    def set_linear_setpoint(self, msg: WheelsCmdStamped):
         """callback that subscirbes to the /wheels_cmd topic to get and apply motor controls"""
         self.get_logger().info(f'Time stamp: {msg.header.stamp.sec}, Frame_id: {msg.header.frame_id}, vel_left: {msg.vel_left}, vel_right: {msg.vel_right}')
 
-        self.left_linear_controller.setpoint = max(-0.25, min(msg.vel_left, 0.25))
-        self.right_linear_controller.setpoint = max(-0.25, min(msg.vel_right, 0.25))
+        self.left_linear_controller.setpoint = max(-self.max_linear_vel, min(msg.vel_left, self.max_linear_vel))
+        self.right_linear_controller.setpoint = max(-self.max_linear_vel, min(msg.vel_right, self.max_linear_vel))
 
         print("left_set::", self.left_linear_controller.setpoint)
         print("right_set::", self.right_linear_controller.setpoint)
+
+
+    def set_angular_setpoint(self, msg: TwistStamped):
+        self.angular_controller.setpoint = max(-self.max_angular_vel, min(msg.twist.angular.z, self.max_angular_vel))
+        
+        print("angular_set:: ", self.angular_controller.setpoint)
 
 def main():
     rclpy.init()
@@ -103,3 +126,6 @@ def main():
     rclpy.spin(controller_node)
     
     rclpy.shutdown()
+    
+if __name__ == "__main__":
+    main()
