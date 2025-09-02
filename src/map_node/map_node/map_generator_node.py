@@ -60,12 +60,6 @@ class Map_Generator_Node(Node):
          
     def corners_in_map_frame(self, tag_to_map_tf: Transform) -> tuple:
         # corner points in the tag's frame, same ordering as corners in cv2.aruco
-        # corners_in_tag_frame = (
-        #     (-0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                                         # upper left
-        #     (self._box_width - 0.5 * self._marker_size, 0.5 * self._marker_size, 0.0),                        # upper right
-        #     (self._box_width - 0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0),    # lower right
-        #     (-0.5 * self._marker_size, -self._box_height + 0.5 * self._marker_size, 0.0)                      # lower left
-        # )
         corners_in_tag_frame = (
             (0.0, 0.0, 0.0),                                         # upper left
             (self._box_width, 0, 0.0),                        # upper right

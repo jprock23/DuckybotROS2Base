@@ -8,20 +8,22 @@ from interfaces.msg import WheelEncoderStamped, WheelsCmdStamped, Throttle
 from geometry_msgs.msg import TwistStamped
 
 class Controller_Node(Node):
-    
+    #ros2 topic pub --once /wheels_cmd interfaces/msg/WheelsCmdStamped "{vel_left: 0.0, vel_right: 0.0}"
     def __init__(self):
         super().__init__('controller_node')
         
-        kP_linear, kI_linear, kD_linear = 2.0, 0.0, 0.0
-        self.left_linear_controller = PID(kP_linear, kI_linear, kD_linear)
-        self.right_linear_controller = PID(kP_linear, kI_linear, kD_linear)
+        kP_linear_l, kI_linear_l, kD_linear_l = 4.5, 0.0, 0.0
+        kP_linear_r, kI_linear_r, kD_linear_r = 2.5, 0.0, 0.0
+
+        self.left_linear_controller = PID(kP_linear_l, kI_linear_l, kD_linear_l)
+        self.right_linear_controller = PID(kP_linear_r, kI_linear_r, kD_linear_r)
         
         kP_angular, kI_angular, kD_angular = 1.0, 0.0, 0.0
         self.angular_controller = PID(kP_angular, kI_angular, kD_angular)
         
         #Subscribers
         self.cmd_subscription = self.create_subscription(WheelsCmdStamped, '/wheels_cmd', self.set_linear_setpoint, 10)
-        self.angular_cmd_subscription = self.create_subscription(TwistStamped, '/angular_cmd', )
+        # self.angular_cmd_subscription = self.create_subscription(TwistStamped, '/angular_cmd', self.set_angular_setpoint, 10)
         self.velocity_left_subscription = self.create_subscription(TwistStamped, '/left_encoder_node/velocity', self.update_left_vel, 10)
         self.velocity_right_subscription = self.create_subscription(TwistStamped, '/right_encoder_node/velocity', self.update_right_vel, 10)
 
@@ -41,16 +43,16 @@ class Controller_Node(Node):
         self.angular_vel = 0.0
         self.linear_vel = 0.0
         
-        self.max_linear_vel = 0.25
-        self.max_angular_vel = 0.25
+        self.max_linear_vel = 0.15
+        self.max_angular_vel = 0.15
 
         self.left_throttle = 0.0
         self.right_throttle = 0.0
 
         self.timer_period = 1/30.0
-        self.twist_timer = self.create_timer(self.timer_period, self.calculate_twist)
+        # self.twist_timer = self.create_timer(self.timer_period, self.calculate_twist)
         self.linear_control_timer = self.create_timer(self.timer_period, self.calcuate_linear_control)
-        self.angular_control_timer = self.create_timer(self.timer_period, self.calculate_angular_control)
+        # self.angular_control_timer = self.create_timer(self.timer_period, self.calculate_angular_control)
 
 
     def update_left_vel(self, msg: TwistStamped):
@@ -85,6 +87,8 @@ class Controller_Node(Node):
     def calcuate_linear_control(self):
         self.left_throttle = self.left_linear_controller(self.curr_velL)
         self.right_throttle = self.right_linear_controller(self.curr_velR)
+        # self.left_throttle = float(self.left_linear_controller.setpoint)
+        # self.right_throttle = float(self.right_linear_controller.setpoint)
 
         print("left_val:: ", self.curr_velL)
         print("right_val:: ", self.curr_velR)
