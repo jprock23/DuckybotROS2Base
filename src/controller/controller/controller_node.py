@@ -12,8 +12,8 @@ class Controller_Node(Node):
     def __init__(self):
         super().__init__('controller_node')
         
-        kP_linear_l, kI_linear_l, kD_linear_l = 2.0, 0.0, 0.0
-        kP_linear_r, kI_linear_r, kD_linear_r = 2.0, 0.0, 0.0
+        kP_linear_l, kI_linear_l, kD_linear_l = 2.0, 0.02, 0.0
+        kP_linear_r, kI_linear_r, kD_linear_r = 4.0, 0.0, 0.0
 
         self.left_linear_controller = PID(kP_linear_l, kI_linear_l, kD_linear_l)
         self.right_linear_controller = PID(kP_linear_r, kI_linear_r, kD_linear_r)
@@ -87,8 +87,8 @@ class Controller_Node(Node):
     def calculate_linear_control(self):
         self.left_throttle = self.left_linear_controller(self.curr_velL)
         self.right_throttle = self.right_linear_controller(self.curr_velR)
-        # self.left_throttle = float(self.left_linear_controller.setpoint)
-        # self.right_throttle = float(self.right_linear_controller.setpoint)
+        # self.left_throttle = 1.0
+        # self.right_throttle = 1.0
 
         print("left_val:: ", self.curr_velL)
         print("right_val:: ", self.curr_velR)
