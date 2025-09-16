@@ -12,8 +12,8 @@ class Controller_Node(Node):
     def __init__(self):
         super().__init__('controller_node')
         
-        kP_linear_l, kI_linear_l, kD_linear_l = 5.25, 0.0, 0.0
-        kP_linear_r, kI_linear_r, kD_linear_r = 5.5, 0.0, 0.0
+        kP_linear_l, kI_linear_l, kD_linear_l = 13.0, 0.0, 0.0
+        kP_linear_r, kI_linear_r, kD_linear_r = 14.8, 0.0, 0.0
 
         self.left_linear_controller = PID(kP_linear_l, kI_linear_l, kD_linear_l)
         self.right_linear_controller = PID(kP_linear_r, kI_linear_r, kD_linear_r)
