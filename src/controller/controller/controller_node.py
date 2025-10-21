@@ -12,8 +12,8 @@ class Controller_Node(Node):
     def __init__(self):
         super().__init__('controller_node')
         
-        kP_linear_l, kI_linear_l, kD_linear_l = 13.0, 0.0, 0.0
-        kP_linear_r, kI_linear_r, kD_linear_r = 14.8, 0.0, 0.0
+        kP_linear_l, kI_linear_l, kD_linear_l = 6.0, 0.0, 0.0
+        kP_linear_r, kI_linear_r, kD_linear_r = 7.5, 0.0, 0.0
         #l: 13.0 r: 14.8
 
         self.left_linear_controller = PID(kP_linear_l, kI_linear_l, kD_linear_l)
@@ -51,7 +51,7 @@ class Controller_Node(Node):
         self.left_throttle = 0.0
         self.right_throttle = 0.0
 
-        self.timer_period = 1/60.0
+        self.timer_period = 1/30.0
         # self.twist_timer = self.create_timer(self.timer_period, self.calculate_twist)
         self.linear_control_timer = self.create_timer(self.timer_period, self.calculate_linear_control)
         # self.angular_control_timer = self.create_timer(self.timer_period, self.calculate_angular_control)
@@ -98,9 +98,11 @@ class Controller_Node(Node):
     def calculate_linear_control(self):
         self.left_throttle = self.left_linear_controller(self.curr_velL)
         self.right_throttle = self.right_linear_controller(self.curr_velR)
+        # self.left_throttle = 1.0
+        # self.right_throttle = 1.0
         throttle_msg = Throttle()
-        throttle_msg.left_throttle = max(-1.0, min(self.right_throttle, 1.0))
-        throttle_msg.right_throttle = max(-1.0, min(self.left_throttle, 1.0))
+        throttle_msg.left_throttle = max(-1.0, min(self.left_throttle, 1.0))
+        throttle_msg.right_throttle = max(-1.0, min(self.right_throttle, 1.0))
         self.throttle_publisher.publish(throttle_msg)
 
 
