@@ -50,8 +50,6 @@ class Controller_Node(Node):
         self.last_left_time = None
         self.last_right_time = None
 
-        self.wheel_radius = .0325
-        self.track_width = 0.14
         self.max_linear_vel = 0.40
         self.max_angular_vel = 0.25
 
@@ -66,32 +64,6 @@ class Controller_Node(Node):
     def update_right_vel(self, msg: TwistStamped):
         self.current_right_vel = msg.twist.linear.x
         self.last_right_time = msg.header.stamp
-
-    def calculate_twist(self):
-        twist_msg = TwistStamped()
-        twist_msg.header.stamp = self.get_clock().now().to_msg()
-        twist_msg.header.frame_id = 'base_link'
-        
-        self.angular_vel = (self.curr_velR - self.curr_velL)/self.track_width
-        self.linear_vel = (self.curr_velL + self.curr_velR)/2.0
-        
-        twist_msg.twist.linear.x = self.linear_vel
-        twist_msg.twist.angular.z = self.angular_vel
-        
-        print(f'omega:: {self.angular_vel}')
-        self.twist_publisher.publish(twist_msg)
-
-
-    def calculate_angular_control(self):
-        omega = self.target_omega
-
-        #decomposes the target angular velocity into left and right linear velocities 
-        left_target = -omega * self.track_width/2
-        right_target = omega * self.track_width/2
-
-        print(f'left_target:: {left_target}, right_target:: {right_target}')
-        self.left_linear_controller.setpoint = max(-self.max_linear_vel, min(left_target, self.max_linear_vel))
-        self.right_linear_controller.setpoint = max(-self.max_linear_vel, min(right_target, self.max_linear_vel))
         
 
     def calculate_linear_control(self):
