@@ -41,7 +41,7 @@ class TagDetectorNode(Node):
 
         # calibration and image initialization
         self._marker_size = 0.1016 # 4 in
-        self.robot_marker_size = 1016 #4
+        self.robot_marker_size = 0.1016 #4
         with open(calibration_file_path, "r") as yaml_file:
             data = yaml.safe_load(yaml_file)
         self._mtx = np.reshape(data["camera_matrix"]["data"], (3, 3))
@@ -55,7 +55,7 @@ class TagDetectorNode(Node):
             cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100), 
             params)
         
-        self.boards = self.generate_boards(18, .028, 2)
+        self.boards = self.generate_boards(18, .028, 1)
 
         self._bridge = CvBridge()
         
@@ -83,7 +83,10 @@ class TagDetectorNode(Node):
     def generate_boards(self, num, seperation, start_id) -> list[cv2.aruco.GridBoard]:
         boards = []
         for i in range(start_id - 1, num, 2):
-            boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100),ids=np.array([i, i + 1])))
+            if i  == 0:
+                boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self.robot_marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100), ids=np.array([0, 1])))
+            else:
+                boards.append(cv2.aruco.GridBoard([1, 2], markerLength=self._marker_size, markerSeparation=seperation, dictionary=cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100),ids=np.array([i, i + 1])))
         return boards
 
 

@@ -25,15 +25,15 @@ def generate_launch_description()->LaunchDescription:
         IncludeLaunchDescription(
             PathJoinSubstitution([state_publisher_launch_dir, "state.launch.py"])
         ),
-        IncludeLaunchDescription(
-            PathJoinSubstitution([localizer_launch_dir, "localizer.launch.py"])
-        ),
+        # IncludeLaunchDescription(
+        #     PathJoinSubstitution([localizer_launch_dir, "localizer.launch.py"])
+        # ),
         IncludeLaunchDescription(
             PathJoinSubstitution([camera_launch_dir, "camera.launch.py"])
         ),
         IncludeLaunchDescription(
             PathJoinSubstitution([camera_launch_dir, "detector.launch.py"])
         ),
-        map_node,
-        controller_node
+        # map_node,
+        # controller_node
     ])

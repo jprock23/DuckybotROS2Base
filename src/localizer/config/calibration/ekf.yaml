@@ -135,22 +135,22 @@ ekf_filter_node:
 # the thresholds.
         pose0_pose_rejection_threshold: 1.0
 
-        twist0: /robot_twist
-        twist0_config: [false, false, false,
-                        false,  false,  false,
-                        true, false, false,
-                        false,  false,  true,
-                        false,  false,  false]
+#         twist0: /robot_twist
+#         twist0_config: [false, false, false,
+#                         false,  false,  false,
+#                         true, false, false,
+#                         false,  false,  true,
+#                         false,  false,  false]
 
-#         #        [x_pos   , y_pos    , z_pos,
-#         #         roll    , pitch    , yaw,
-#         #         x_vel   , y_vel    , z_vel,
-#         #         roll_vel, pitch_vel, yaw_vel,
-#         #         x_accel , y_accel  , z_accel]
+# #         #        [x_pos   , y_pos    , z_pos,
+# #         #         roll    , pitch    , yaw,
+# #         #         x_vel   , y_vel    , z_vel,
+# #         #         roll_vel, pitch_vel, yaw_vel,
+# #         #         x_accel , y_accel  , z_accel]
         
-        twist0_nodelay: false
-        twist0_queue_size: 10
-        twist0_twist_rejection_threshold: 0.8                
+#         twist0_nodelay: false
+#         twist0_queue_size: 10
+#         twist0_twist_rejection_threshold: 0.8                
 
 # [ADVANCED]  The EKF and UKF models follow a standard predict/correct cycle. During prediction, if there is no
 # acceleration reference, the velocity at time t+1 is simply predicted to be the same as the velocity at time t. During
