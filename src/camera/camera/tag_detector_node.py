@@ -196,7 +196,7 @@ class TagDetectorNode(Node):
                                                        0.0, 0.0, 0, 0.0, 0.0, 0.0,
                                                        0.0, 0.0, 0.0, 0, 0.0, 0.0,
                                                        0.0, 0.0, 0.0, 0.0, 0, 0.0,
-                                                       0.0, 0.0, 0.0, 0.0, 0.0, 0.12], dtype=float)
+                                                       0.0, 0.0, 0.0, 0.0, 0.0, 0.5], dtype=float)
             
             tf_msg = TransformStamped()
             tf_msg.header.stamp = self.get_clock().now().to_msg()
@@ -260,17 +260,15 @@ class TagDetectorNode(Node):
                             if (1 in board_ids) or (0 in board_ids):
                                 self.pub_robot_pose(tvec)
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self.robot_marker_size, 2)
-                                tvecs.append(np.squeeze(tvec))
-                                rvecs.append(np.squeeze(rvec))
-                                tag_ids.append(int(np.squeeze(board_ids[0])))
                             else:
                                 frame = cv2.drawFrameAxes(frame, self._mtx, self._dst, rvec, tvec, self._marker_size, 2)
-                                tvecs.append(np.squeeze(tvec))
-                                rvecs.append(np.squeeze(rvec))
-                                tag_ids.append(int(np.squeeze(board_ids[0])))
+
+                            tvecs.append(np.squeeze(tvec))
+                            rvecs.append(np.squeeze(rvec))
+                            tag_ids.append(int(np.squeeze(board_ids[0])))
 
         if (not self._has_transform and (len(tvecs) >= 3)):
-            #if no camera_to_map transform is defined, and at least three tags have been seen, define the transformz
+            #if no camera_to_map transform is defined, and at least three tags have been seen, define the transforms
             self.make_transform(tvecs)
         camera_to_map_tf = None
         try:
@@ -280,6 +278,7 @@ class TagDetectorNode(Node):
                 rclpy.time.Time()).transform
         except:
             pass
+
         if ((len(tvecs) > 0) and (camera_to_map_tf is not None)):
             camera_to_map_mtx = np.eye(N=4)
             camera_to_map_mtx[:3, :3] = Rotation.from_quat(
@@ -300,6 +299,10 @@ class TagDetectorNode(Node):
             for i in range(len(tvecs)):
                 tvec = tvecs[i]
                 rvec = rvecs[i]
+
+                if tag_ids[i] == 0 or tag_ids[i] == 1:
+                    self.pub_robot_pose(tvec)
+
                 rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
                 rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()
                 homogenous_pt = np.full(shape=(4, 1), fill_value=1.0) # 4x1 homogenous point

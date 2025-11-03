@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from simple_pid import PID
 
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TwistStamped
 from interfaces.msg import WheelsCmdStamped
 
 class Navigation_Controller_Node(Node):
@@ -17,7 +17,7 @@ class Navigation_Controller_Node(Node):
         self.setpoint_subscriber = self.create_subscription(PoseStamped, "/target", self.set_setpoint, 10)
         
         #Publisher
-        self.cmd_publisher = self.create_publisher(WheelsCmdStamped, '/wheels_cmd', 10)
+        self.cmd_publisher = self.create_publisher(TwistStamped, '/cmd_vel', 10)
 
         control_period = 1/30
 
@@ -92,12 +92,12 @@ class Navigation_Controller_Node(Node):
         print(f"Computed omega: {omega:.4f}, vel_left: {vel_left:.4f}, vel_right: {vel_right:.4f}")
         print("----")
 
-        wheels_cmd = WheelsCmdStamped()
-        wheels_cmd.header.stamp = self.get_clock().now().to_msg()
-        wheels_cmd.vel_left = vel_left
-        wheels_cmd.vel_right = vel_right
+        twist_cmd = TwistStamped()
+        twist_cmd.header.stamp = self.get_clock().now().to_msg()
+        twist_cmd.twist.linear.x = vel_left
+        twist_cmd.twist.angular.z = vel_right
 
-        self.cmd_publisher.publish(wheels_cmd)
+        self.cmd_publisher.publish(twist_cmd)
 
 
     def calculate_linear_control(self):
@@ -134,14 +134,14 @@ class Navigation_Controller_Node(Node):
                 self.pose_reached = True
                 self.pose_controller.reset()
 
-        wheels_cmd = WheelsCmdStamped()
-        wheels_cmd.header.stamp = self.get_clock().now().to_msg()
-        # keep the previous inversion (negate) so sign behavior remains as before
-        wheels_cmd.vel_left = -target_velo
-        wheels_cmd.vel_right = -target_velo
+        twist_cmd = TwistStamped()
+        twist_cmd.header.stamp = self.get_clock().now().to_msg()
+        twist_cmd.header.frame_id = 'base_link'
+        twist_cmd.twist.linear.x = -target_velo
+        twist_cmd.twist.angular.z = 0.0
 
-        self.cmd_publisher.publish(wheels_cmd)
-        
+        self.cmd_publisher.publish(twist_cmd)
+
 def main():
     rclpy.init()
     
