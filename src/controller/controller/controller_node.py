@@ -34,7 +34,7 @@ class Controller_Node(Node):
         # Subscribers
         self.create_subscription(TwistStamped, '/left_encoder_node/velocity', self.update_left_vel, 10)
         self.create_subscription(TwistStamped, '/right_encoder_node/velocity', self.update_right_vel, 10)
-        self.create_subscription(TwistStamped, '/cmd_vel', self.set_linear_setpoint, 10)
+        self.create_subscription(WheelsCmdStamped, '/wheels_cmd', self.set_linear_setpoint, 10)
         # self.angular_cmd_subscription = self.create_subscription(TwistStamped, '/angular_cmd', self.set_angular_setpoint, 10)
 
         # Publishers
@@ -105,10 +105,10 @@ class Controller_Node(Node):
 
         self.throttle_pub.publish(throttle_msg)
 
-        
-    def set_linear_setpoint(self, msg: TwistStamped):
-        self.target_left_vel = msg.twist.linear.x
-        self.target_right_vel = msg.twist.linear.x
+
+    def set_linear_setpoint(self, msg: WheelsCmdStamped):
+        self.target_left_vel = msg.vel_left
+        self.target_right_vel = msg.vel_right
         self.pid_left.setpoint = self.target_left_vel
         self.pid_right.setpoint = self.target_right_vel
 

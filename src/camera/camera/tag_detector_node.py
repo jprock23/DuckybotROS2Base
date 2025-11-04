@@ -300,8 +300,6 @@ class TagDetectorNode(Node):
                 tvec = tvecs[i]
                 rvec = rvecs[i]
 
-                if tag_ids[i] == 0 or tag_ids[i] == 1:
-                    self.pub_robot_pose(tvec)
 
                 rmtx, _ = cv2.Rodrigues(rvec) # 3x3 rotation matrix
                 rmtx_as_quat = Rotation.from_matrix(rmtx).as_quat()

@@ -2,8 +2,10 @@ import math
 import rclpy
 from rclpy.node import Node
 from simple_pid import PID
+from scipy.spatial.transform import Rotation
 
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, TwistStamped
+from nav_msgs.msg import Odometry
 from interfaces.msg import WheelsCmdStamped
 
 class Navigation_Controller_Node(Node):
@@ -13,11 +15,12 @@ class Navigation_Controller_Node(Node):
         super().__init__("navigation_controller_node")
         
         #Subscribers
-        self.odom_subscriber = self.create_subscription(PoseWithCovarianceStamped, "/robot_pose", self.update_state, 10)
+        self.odom_subscriber = self.create_subscription(Odometry, "/odometry/filtered", self.update_state, 10)
         self.setpoint_subscriber = self.create_subscription(PoseStamped, "/target", self.set_setpoint, 10)
         
         #Publisher
         self.cmd_publisher = self.create_publisher(TwistStamped, '/cmd_vel', 10)
+        self.wheels_cmd_publisher = self.create_publisher(WheelsCmdStamped, '/wheels_cmd', 10)
 
         control_period = 1/30
 
@@ -50,15 +53,22 @@ class Navigation_Controller_Node(Node):
         self.left_val = 0.0
         self.right_val = 0.0
 
-    def update_state(self, msg: PoseWithCovarianceStamped):
-        # PoseWithCovarianceStamped has .pose.pose similar to Odometry
+    def update_state(self, msg: Odometry):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
-        # project: project orientation.z is being used by this project as a simple yaw value
-        self.theta = msg.pose.pose.orientation.z
+
+
+        self.theta = Rotation.from_quat([
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
+        ]).as_euler('xyz')[2]
+
+        print(f"Updated State: x: {self.x:.3f}, y: {self.y:.3f}, theta: {self.theta:.3f}")
 
     def set_setpoint(self, msg: PoseStamped):
-        self.pose_controller.setpoint = 0 #msg.pose.position.x
+        self.pose_controller.setpoint = 0
         self.xt = msg.pose.position.x
         self.yt = msg.pose.position.y
         self.thetat = msg.pose.orientation.z
@@ -94,11 +104,16 @@ class Navigation_Controller_Node(Node):
 
         twist_cmd = TwistStamped()
         twist_cmd.header.stamp = self.get_clock().now().to_msg()
-        twist_cmd.twist.linear.x = vel_left
-        twist_cmd.twist.angular.z = vel_right
+        twist_cmd.twist.linear.x = 0.0
+        twist_cmd.twist.angular.z = omega
+
+        wheels_cmd = WheelsCmdStamped()
+        wheels_cmd.header.stamp = self.get_clock().now().to_msg()
+        wheels_cmd.vel_left = vel_left
+        wheels_cmd.vel_right = vel_right
 
         self.cmd_publisher.publish(twist_cmd)
-
+        self.wheels_cmd_publisher.publish(wheels_cmd)
 
     def calculate_linear_control(self):
         # self.cmd_publisher.publish(wheel_cmd)

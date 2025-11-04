@@ -21,6 +21,11 @@ def generate_launch_description()->LaunchDescription:
         executable='controller'
     )
 
+    navigator_node = Node(
+        package='navigator',
+        executable='navigator'
+    )
+
     return LaunchDescription([
         IncludeLaunchDescription(
             PathJoinSubstitution([state_publisher_launch_dir, "state.launch.py"])
@@ -34,6 +39,7 @@ def generate_launch_description()->LaunchDescription:
         IncludeLaunchDescription(
             PathJoinSubstitution([camera_launch_dir, "detector.launch.py"])
         ),
-        # map_node,
-        # controller_node
+        map_node,
+        controller_node,
+        # navigator_node
     ])
